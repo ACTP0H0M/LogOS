@@ -1,0 +1,14 @@
+SELF/0/
+AI/1/
+input/2/
+#CHAIN human can_do,0.9 #B #B open what door B# if #B door is closed B# B#/3/
+human/4/
+open/7/
+door/8/
+#BRANCH6/6/
+door/10/
+closed/11/
+#BRANCH9/9/
+#BRANCH5/5/
+input/12/
+#EXIT/13/
