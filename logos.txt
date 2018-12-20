@@ -6,9 +6,62 @@ human/4/
 open/7/
 door/8/
 #BRANCH6/6/
-door/10/
 closed/11/
 #BRANCH9/9/
 #BRANCH5/5/
 input/12/
 #EXIT/13/
+input/14/
+#CHAIN oxygen is_needed_to,1.0 breathe/15/
+oxygen/16/
+breathe/17/
+input/18/
+#CHAIN human do,1.0 #B need what breathe B# what_for,0.8 live/19/
+need/22/
+#BRANCH21/21/
+live/24/
+input/25/
+input/27/
+#CHAIN human do,1.0 #B need what #B breathe what_for live B# B#/28/
+#BRANCH32/32/
+#BRANCH30/30/
+input/35/
+input/37/
+#CHAIN Alice is_a,1.0 human/38/
+Alice/39/
+input/41/
+#CHAIN human can_do,0.9 #B eat what food B#/42/
+eat/45/
+food/46/
+#BRANCH44/44/
+input/47/
+Alice eat food/48/
+input/49/
+input/51/
+Alice eat human/52/
+input/53/
+#CHAIN human can_do,0.9 eat/54/
+input/57/
+human eat/58/
+input/59/
+input/61/
+input/64/
+Life is strange./65/
+input/66/
+wow/67/
+input/68/
+tell me about yourself/69/
+input/70/
+what is happening/71/
+input/72/
+input/74/
+#CHAIN cookies is_a,1.0 food/75/
+cookies/76/
+input/78/
+#CHAIN Alice can_do,1.0 #B eat what cookies B#/79/
+#BRANCH81/81/
+input/84/
+input/86/
+Alice is a human./87/
+input/88/
+#EXIT/89/
