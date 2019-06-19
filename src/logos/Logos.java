@@ -2,17 +2,19 @@ package logos;
 
 import java.util.ArrayList;
 
-public class Logos {
+public class Logos implements java.io.Serializable {
 	
-	String name;
-	long id;
-	ArrayList<Link> outwardLinks, inwardLinks;
+	public String name;
+	public long id;
+	public ArrayList<Link> outwardLinks, inwardLinks;
 	
 	public Logos(String name, long id, ArrayList<Link> outwardLinks, ArrayList<Link> inwardLinks) {
 		this.name = name;
 		this.id = id;
 		this.outwardLinks = outwardLinks;
 		this.inwardLinks = inwardLinks;
+		
+		//System.out.println("LOGOS: New Logos " + id + " [" + name + "]");
 	}
 	
 	public void actualizeAllLinks(double rememberRate, boolean verbose) {
@@ -31,4 +33,38 @@ public class Logos {
 		}
 	}
 
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public long getId() {
+		return id;
+	}
+
+	public void setId(long id) {
+		this.id = id;
+	}
+
+	public ArrayList<Link> getOutwardLinks() {
+		return outwardLinks;
+	}
+
+	public void setOutwardLinks(ArrayList<Link> outwardLinks) {
+		this.outwardLinks = outwardLinks;
+	}
+
+	public ArrayList<Link> getInwardLinks() {
+		return inwardLinks;
+	}
+
+	public void setInwardLinks(ArrayList<Link> inwardLinks) {
+		this.inwardLinks = inwardLinks;
+	}
+
+	
+	
 }

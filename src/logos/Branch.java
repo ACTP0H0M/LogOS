@@ -6,7 +6,7 @@ import java.util.ArrayList;
 /*
  * A Branch always begins with a Logos, followed by a Link and so on in interchanging order.
  */
-public class Branch extends Logos {
+public class Branch extends Logos implements java.io.Serializable {
 	
 	ArrayList<Logos> containedLogosList = new ArrayList<Logos>();
 	ArrayList<Link> containedLinkList = new ArrayList<Link>();

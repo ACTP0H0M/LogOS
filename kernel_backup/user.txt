@@ -1,0 +1,4 @@
+#C #USER is_a,1.0 human
+#C #USER have,1.0 emotions
+#C #B #USER do overwork B# causes,0.9 #B #USER is exhausted B#
+#C #B #USER do,-1.0 #B eat what vitamins B# B# causes #B #USER is depressed B#

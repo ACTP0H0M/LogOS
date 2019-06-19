@@ -1,0 +1,8 @@
+#C animal can_do,1.0 move
+#C animal can_do,1.0 breathe
+#C animal can_do,-0.5 think
+#C animal can_do,-0.8 reason
+#C spider have,0.8 #B leg unit 8 B#
+#C cat have,1.0 #B leg unit 4 B#
+#C dog have,1.0 #B leg unit 4 B#
+#C human have,1.0 #B leg unit 2 B#

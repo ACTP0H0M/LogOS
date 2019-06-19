@@ -1,0 +1,7 @@
+#C lungs is_needed_to,0.9 breathe
+#C body is_needed_to,1.0 move
+#C body is_needed_to,1.0 walk
+#C body is_needed_to,1.0 run
+#C body is_needed_to,1.0 move
+#C insomnia causes,0.9 tired
+#C body is_needed_to,1.0 #B hold what dish B#

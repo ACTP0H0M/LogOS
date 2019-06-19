@@ -1,0 +1,3 @@
+#C study is_needed_to,0.9 #B pass what exam B#
+#C water is_needed_to,0.9 #B wash what dishes B#
+#C #B hold what dish B# is_needed_to,0.9 #B wash what dishes B#

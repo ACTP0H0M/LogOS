@@ -1,0 +1,332 @@
+**************************************************************************************************
+
+LogOS - User Manual	Version 1.1
+
+**************************************************************************************************
+
+CONTENTS
+
+1. Purpose of LogOS
+2. General architecture
+3. Chainese input language
+4. Inference rules
+5. Finding and solving Problems
+6. Input processing
+7. Troubleshooting
+
+**************************************************************************************************
+
+1. PURPOSE OF LogOS
+
+LogOS (Logical Operation System) is a semi-intelligent system that can store information about the
+world, make assumptions and communicate with the user via chatbot interface. LogOS is first of all
+a chatbot and is created to make an impression of an intelligent partner. Its intelligence is for
+now very limited and not capable of interacting with the world by any means except console.
+
+In the long run, LogOS will be capable of understanding your emotions and holding a simple
+conversation. Don't expect too much from the logical reasoning of the system since LogOS is not
+even a highschool graduate.
+
+Remember, LogOS saves all knowledge it gets in a hypergraph, but only if it's very sure that user's
+input was understood correctly. In this system we parse input using a fairly good pattern matching
+and not machine learning algorithms to avoid any unexplainable inaccuracies. However, natural
+language is a very free form of communication compared to programming languages. If LogOS doesn't
+understand you, it tells you just that or tries to fake interest. The bigger its pattern matching
+unit grows, the less misunderstanding occurs.
+
+OpenNLP is used as an experimental unit for parsing user input and translating it to Chainese (see
+Part 3 of this manual) if predefined pattern matching fails.
+
+**************************************************************************************************
+
+2. GENERAL ARCHITECTURE
+
+2.1. MAIN CLASS
+
+The main class contains the high level outline of LogOS. This includes parsing user input, adding
+extracted information to the hypergraph, updating the database, scanning for Problems and Thought
+generation.
+
+2.2. DATABASE INTERFACE
+
+Contains all methods for updating knowledge hypergraph, merging redundancies and repetitions as 
+well as inference engine in the void updateDatabase().
+
+2.3. PROBLEM FINDER
+
+It scans the hypergraph for Problems or missing important information and returns Problems in a 
+well-structured form.
+
+2.4. PROBLEM SOLVER
+
+Applies predefined rules to solve Problems by asking the user, searching in the dictionary, net
+or by making assumptions. Also contains the necessary methods to search information on the web.
+
+2.5. TEXT METHODS
+
+OpenNLP and WordNet usage. Especially important for natural language processing and part-of-speech
+tagging.
+
+2.6. UTILS
+
+Contains lots of useful and experimental utilities for graph modification, pattern matching, 
+filtering and iteration.
+Here the generality function (see more in Part 3.1.) is defined as a function of evidence (e) and
+belief (b). The generality value (g) can be between -1 and 1. In this initial version of LogOS the
+function is:
+g = 2 / pi * arctan(b * e)
+For example, a fact that has 5 positive evidences given the system's belief b = 1.0 has g = 0.8743.
+The inverse generality function returns the evidence given a generality value.
+
+**************************************************************************************************
+
+3. CHAINESE INPUT LANGUAGE
+
+3.1. BASICS OF THE SYNTAX
+
+LogOS represents all knowledge using 3 types of objects connected as a hypergaph:
+1) Logos - basically all nouns and entities that exist as a part of this world;
+2) Link - directed logical connections between Logos (having a source and a target Logos)
+   which always have two parameters: generality (g) and actuality (a).
+   Generality value represents how universal a statement is and is between -1 and 1, negative 
+   values meaning false statements and positive - true statements.
+   Actuality describes how actual is the Link, between 0 and 1, 1 meaning a Link just recorded.
+3) Branch - extends Logos by saving whole graphs as a single "concept".
+
+To make input of new knowledge deterministic and accurate, a special syntax is introduced. It is
+meant to be a way for humans to input "Chains" of Logos, Links and Branches in a single command.
+That's the reason it's called "Chainese". (Note: manualInput() method in MainClass is not only
+meant for human input, it is used by LogOS itself in case of NLP parsing).
+
+A valid Chainese command begins with #C.
+
+All following tokens (words and opening/closing brackets) are separated by a space.
+
+To write a Logos, just type its name. For a thing like "heavy metal" use underscore:
+heavy_metal
+The same is true for Links, but here you can also specify its generality by a numerical value
+after a comma. Branches are surrounded by #B ... B#.
+
+Here are some examples to make this clear.
+
+"The computer is on a big table." looks like this in Chainese:
+#C computer is #B #B table is big B# prep on B#
+
+"Animals have lungs." is true in most of the cases, so we can specify the generality value:
+#C animals have,0.9 lungs
+
+3.2. LIST OF IMPORTANT KEYWORDS AND LINK NAMES
+
+#C and #B and B# are the structuring tokens.
+
+#SELF refers to LogOS itself.
+#USER is the human interacting with LogOS.
+#ENTITY, #PROPERTY, #VERB are used to classify Logos by their nature (usually automatic).
+#NOW is the current moment or period of time.
+
+For example, "LogOS is charming." would be
+#C #SELF is,1.0 charming
+(you can input the generality you want)
+
+"I don't love rap" = #C #USER do,-1.0 #B love what rap B# = #C #USER do #B -love what rap B#
+(a minus before a Logos negates a Logos, mainly used with verbs)
+
+It is important to note that LogOS expects Logos and Branches objects at an odd index and a Link at
+an even index.
+
+The restrictions for Link names are as below (but this will be more flexible in the future):
+
+Link.relationName	Meaning				Example
+
+is_a			inheritance link		fish is_a animal
+is			description, can be relative	sun is bright
+							Alice is #B house prep in B#
+do			action in general/present	bird do fly
+did			action in the past		#USER did,-1.0 #B see what eclipse B#
+have			possession, but not component	Mike have car
+is_needed_to		action requirement		money is_needed_to buy
+causes			cause				smoking causes lung_cancer
+because(_of)		between Branches or Logos	laugh because_of joke
+what/whom		Link between verb and object	eat what hamburger
+opposite_to		antonym relationship		good opposite_to bad
+prep			Link to preposition		wall prep behind (=behind the wall)
+if			inverse of "is_needed_to",	#B #USER do go_out B# if #B sun do shine B#
+			mainly between Branches
+and			"and"-conjunction		apple is #B tasty and big B#
+or			"or"-conjunction
+can_do			actions available for a Logos	fish can_do swim
+can_have		what Logos can possess		bird can_have nest
+is_component_of		between component and whole	CPU is_component_of computer
+how			between action and adverb	run how fast
+when			to specify an action's time	sleep when yesterday
+how_long		action's duration		sleep how_long #B 10 unit hour B#
+unit			unit of a quantity		5 unit litre
+where_dir		direction (of movement)		go where_dir Moon
+where_loc		location of an entity or an	sit where_loc #B table prep at B#
+			action
+parallel_to		Link between two parallel	
+			actions or activities
+task_link		procedural Link only from
+			#SELF to the given task
+method_link		from task to known algorithm
+			of achieving that goal
+in_order_to		describes the purpose of an
+			action or an action Branch,
+			meaning the actor percieved
+			the source of this Link a way
+			to achieve the goal specified
+			in the target Logos/Branch
+
+3.3. LOGOS CLASS
+
+A Logos is specified by the following:
+a) unique ID number (primitive type: long);
+b) name;
+c) a list of outward Links, showing away from this Logos;
+d) a list of inward Links, showing towards this Logos.
+
+In the Database may exist multiple Logos with same names but they will be normally merged to one
+Logos object if they represent the same concept. Logos names should be lowercase, except for named
+entities. Phrasal verbs should be written like this: "put_out", "give_in".
+
+The Logos class contains a function that increases all in-/outward Links' actualities by some given
+amount (void actualizeAllLinks).
+
+3.4. LINK CLASS
+
+A Link (directed relation between two Logos objects) is represented by 6 necessary values:
+a) source Logos;
+b) target Logos;
+c) assigned Link type (relationName);
+d) generality from -1 to 1;
+e) actuality from 0 to 1;
+f) unique ID number (long).
+
+2 values are optional:
+a) Link "arg1" and
+b) Link "arg2"
+that represent the two argument Links used by LogOS internally to create the current Link based on
+inference rules. A Link with both empty arg1 and arg2 raises an UNKNOWN_REASON Problem when scanned
+by the ProblemFinder.
+
+3.5. BRANCH CLASS
+
+The Branch class extends the Logos class. Its name is always generic like "#BRANCH12", including
+the objects's ID number on the end of the name string.
+
+Since a Branch represents a logical connection between two or more Logos, every Branch contains:
+a) a tuple of "contained" Logos in their logical order;
+b) a tuple of "contained" Links in their logical order.
+
+These contained objects are related in such a way that the first Link has the first Logos as its
+source and the second Logos as its target, and so on. The number of Logos and Links connected to
+each other in the form of "chain" on the same level in one Branch is not restricted. Due to the
+structure of natural language that prefers tree-like dependencies, Branches are often nested.
+
+This design decision is one of the weaknesses of current LogOS implementation because it restricts
+the broadness of object descriptions. The Branch structure is nevertheless better to save more
+precise definitions and emphasizes clustering Logos and Links in concepts respecting the logical
+order of description. Thus, a Branch that lies deeper is always more specific than the one that
+encapsules it.
+
+
+**************************************************************************************************
+
+4. INFERENCE RULES
+
+Implemented in DatabaseInterface. Highy experimental, no guarantee of functioning.
+
+4.1. MERGING SAME LOGOS
+
+Many words will occur in the input multiple times. To save the space such Logos will be merged as
+soon as the difference of the actualities of their most actual Links (maxLinkActuality) is less
+than mergeActualitySpan.
+
+4.2. MERGING SAME LINKS
+
+This is done in mergeRedundancies(). All Links in the hypergraph are filtered by a threshold
+actuality (a_min). These are the "most actual Links". Next, they are scanned for Links with
+pairwise same relationNames, source name and target name. Such Links are being merged if (and this
+is only a draft for a rule, since it could have effect on LogOS' reasoning abilities) the product
+of their generalities is greater than a positive mergeThresh:
+
+g1 * g2 > mergeThresh
+
+This should restict contradicting Links to be eliminated, losing information. If two Links can be
+merged into one Link, the new Link's actuality is the minimum of the two initial actualitites, and
+generality is calculated as the generality function of two initial evidence amounts (e1,2) added:
+
+a_new = min(a1, a2)
+g_new = g(b * (e1 + e2))
+
+In this way we can control the system's generalisation ability by increasing/decreasing the system
+belief b, since all Links have the default generality of 1 positive evidence g(b * 1) if nothing
+else was given. With a low belief b, same Links that have only 1 evidence each will not be merged,
+holding LogOS from making wrong over-generalisations. This measure diminishes LogOS' memory
+compression.
+This part of the program has to be experimented with, finding the best trade-off between memory
+efficiency and information precision, by varying the belief, changing mergeThresh or the
+generality function in Utils.
+
+4.3. OTHER RULES
+
+The other rules are shortly explained in the code and will not be described here since they could
+change drastically in the future.
+
+**************************************************************************************************
+
+5. FINDING AND SOLVING PROBLEMS
+
+5.1. PROBLEM OBJECT
+
+Problem object is the data structure to store problem representations in LogOS. Any Problem is one
+of the two:
+a) a conflict between two or more pieces of information (Links or chains of Links),
+b) missing information that could be relevant for logic inferencing.
+
+A Problem is specified by:
+a) type (which triggers different routines in ProblemSolver);
+b) a tuple of relevant Links (the order is specific for every problem type);
+c) a tuple of relevant Logos;
+d) a tuple of relevant Branches;
+e) the problem's severity, ranging from 0 to 1 (this defines the priority of the Problem);
+f) whether it is an internal Problem found by ProblemFinder;
+g) whether it is solved.
+
+5.2. PROBLEM TYPES
+
+CONTRADICTION (includes 2 contradicting Links)
+MISSING_RESOURCE (includes 1 Logos object that isn't available) 
+UNKNOWN_REASON (includes 1 Link with unknown reason)
+UNKNOWN_PURPOSE (includes 1 Logos/Branch that LogOS checks for outgoing "in_order_to" Links)
+NO_INHERITANCE (not used)
+NO_DESCRIPTIONS (not used, redundant with UNKNOWN_PROPERTY)
+UNKNOWN_ACTION_REQUIREMENTS (includes 1 action Logos and 1 optional object Logos)
+UNKNOWN_PLACE (includes 1 object Logos and 1 optional description Logos)
+UNKNOWN_TIME_FUTURE/PAST (includes 2 Logos: object and action) 
+UNKNOWN_METHOD (includes 2 Logos: an action and an optional object)
+UNKNOWN_PROPERTY (includes 1 object Logos, 1 optional Link to a description Branch and
+1 description Branch)
+UNKNOWN_OBJECT (includes 2 Logos: a subject and an action)
+UNKNOWN_ACTION (includes 1 subject/actor Logos)
+UNKNOWN_SUBJECT (includes 2 Logos: an action and an object)
+PHILOSOPHICAL_QUESTION
+COMMAND (includes 1 task_link from #SELF to the Branch containing the action to be accomplished)
+IS_STATEMENT_TRUE (includes a List of interconnected Logos and Links - statement - to be proven)
+UNKNOWN_QUANTITY (includes 1 subject Logos (can be a Branch) and 1 object Logos,
+1 Link between them)
+UNKNOWN_FIELD_VALUE (used for questions about color, shape etc.)
+
+**************************************************************************************************
+
+6. INPUT PROCESSING
+
+6.1. SENTENCE DETECTION
+
+The user's input can consist of multiple sentences. OpenNLP is used to detect sentences and save
+them in an array of Strings [sents].
+
+6.2. ITERATION OVER THE SENTENCES
+
+An integer [m] is the index of the current sentence in [sents]. [useNLP] switch is set to true as a
+default value, meaning that if no predefined pattern could be used, OpenNLP parses the sentence.
