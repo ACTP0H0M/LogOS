@@ -65,13 +65,13 @@ import toolkit.*;
 
 /*
  * Development begun: 12.12.2018
- * Version: 1.2.2019-06-11.Lenovo
+ * Version: 1.3.2019-06-19.Lenovo
  */
 
 public class MainClass {
 	
 	// Parameters and variables
-	static int verbosity = 0;
+	static int verbosity = 3;
 	static boolean loadExternalData = true;
 	static boolean saveChanges = true;
 	static boolean serialize = true;
@@ -79,7 +79,7 @@ public class MainClass {
 	/*
 	 * Verbosity levels:
 	 * 0 = only final output
-	 * 1 = ... and intralogistics (task delivery between agents)
+	 * 1 = ... and intralogistics, personality (task delivery between agents)
 	 * 2 = ... and utilities, analysis usage
 	 * 3 = ... and database operations
 	 */
@@ -110,6 +110,7 @@ public class MainClass {
 	static DatabaseInterface database = new DatabaseInterface(verbosity, a_min);
 	static ProblemSolver prsolver = new ProblemSolver(verbosity);
 	static ProblemFinder prfinder = new ProblemFinder(verbosity, a_min);
+	static Person person = new Person();
 	static Utils utils = new Utils(verbosity);
 	static Scanner consoleInput = new Scanner(System.in);
 	static TextMethods textReader = new TextMethods(verbosity, belief);
@@ -137,6 +138,14 @@ public class MainClass {
 	static Problem internalProblem;
 
 	public static void main(String[] args) {
+		
+		// Configure Person
+		person.setEmpathy(0.8f);
+		person.setHonesty(0.7f);
+		person.setIntellect(0.5f);
+		person.setOptimism(0.7f);
+		person.setSensitivity(0.5f);
+		person.setVerbosity(0.5f);
 		
 		Logger cmRootLogger = Logger.getLogger("default.config");
 		cmRootLogger.setLevel(java.util.logging.Level.OFF);
@@ -590,9 +599,9 @@ public class MainClass {
 				useNLP = false;
 			}
 			
-			////////////////////////////////////////
-			//HANDLING COMPLEX SENTENCES USING NLP//
-			////////////////////////////////////////
+			//////////////////////////////////////////////////////////////
+			//HANDLING COMPLEX SENTENCES USING NLP AND PERSONALITY MODEL//
+			//////////////////////////////////////////////////////////////
 			
 			if (useNLP == true) {
 				// Parse a sentence with OpenNLP
@@ -608,6 +617,9 @@ public class MainClass {
 					
 					// try manualInput()
 					manualInput(chain);
+					
+					// entry point for detailed analysis
+					person.applyPersonality(sents[m]);
 					
 					// Handle failSafe and inWidth modes here to imitate interest.
 					/*
