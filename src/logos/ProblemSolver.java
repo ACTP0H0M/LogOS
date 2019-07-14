@@ -371,7 +371,7 @@ public class ProblemSolver extends Object{
 						branchOutIs = utils.linksByName(utils.directShellBranch(obj, database).outwardLinks, "is");
 						isLinks.addAll(branchOutIs);
 					} catch (NullPointerException e) {
-						// ???
+						write("there is an object without a description");
 					}
 					isLinks = utils.filterLinksByGeneralitySign(isLinks, true);
 					for (Link il : isLinks) {
@@ -383,6 +383,12 @@ public class ProblemSolver extends Object{
 									locations.add(il);
 									write("found a location of " + problem.logosCollection.get(0).getName());
 								}
+							}
+						} else {
+							// if the location is just an adverb ("nearby" etc.)
+							if (utils.stringArrayContains(utils.vagueLocationWords, il.target.name)) {
+								locations.add(il);
+								write("found an approximate location of " + problem.logosCollection.get(0).getName());
 							}
 						}
 					} 
@@ -413,18 +419,26 @@ public class ProblemSolver extends Object{
 				// Leave only the objects with matching property
 				for (Logos obj : (ArrayList<Logos>) objects.clone()) {
 					// Remove all Logos that have wrong descriptions
+					write("checking Logos " + obj.id);
 					try {
+						// Problem here: if the object has 2 or more shell Branches...
+						// This should be solved by improving merging algorithms.
+						// Example: If two objects of same category but different properties are given,
+						// don't merge them. Assume that red ball and blue ball is not the same ball!
+						// For now it only remembers the first occurence of an object.
 						Branch shell = utils.directShellBranch(obj, database);
 						int logIdx = shell.containedLogosList.lastIndexOf(obj);
-						if (!shell.containedLinkList.get(logIdx).getRelationName().equals("is")
-								|| shell.containedLinkList.get(logIdx).getGenerality() < 0
-								|| !shell.containedLinkList.get(logIdx).getTarget().getName().equals(problem.logosCollection.get(1).getName())) {
-							// Problem here: if the object has 2 or more shell Branches...
-							// This should be solved by improving merging algorithms.
-							// Example: If two objects of same category but different properties are given,
-							// don't merge them. Assume that red ball and blue ball is not the same ball!
-							// For now it only remembers the first occurence of an object.
+						if (!shell.containedLinkList.get(logIdx).getRelationName().equals("is")) {
 							objects.remove(obj);
+							write("removed Logos " + obj.id + " because the next Link in the Branch is not [is]");
+						}
+						if (shell.containedLinkList.get(logIdx).getGenerality() < 0) {
+							objects.remove(obj);
+							write("removed Logos " + obj.id + " because the next Link in the Branch has a negative generality");
+						}
+						if (!shell.containedLinkList.get(logIdx).getTarget().getName().equals(problem.logosCollection.get(1).getName())) {
+							objects.remove(obj);
+							write("removed Logos " + obj.id + " because its specification is wrong");
 						}
 					} catch (NullPointerException npe) {
 						write("the object in database is not specified");
@@ -436,10 +450,12 @@ public class ProblemSolver extends Object{
 					ArrayList<Link> isLinks = utils.linksByName(obj.outwardLinks, "is");
 					ArrayList<Link> branchOutIs;
 					try {
-						branchOutIs = utils.linksByName(utils.directShellBranch(obj, database).outwardLinks, "is");
+						Branch dsb = utils.directShellBranch(obj, database);
+						branchOutIs = utils.linksByName(dsb.outwardLinks, "is");
 						isLinks.addAll(branchOutIs);
+						write("direct shell Branch " + dsb.id + " of Logos " + obj.id + " has " + branchOutIs.size() + " outward [is] Links");
 					} catch (NullPointerException e) {
-						// ???
+						write("Logos " + obj.id + " doesn't have a direct shell Branch");
 					}
 					// Find all positive Links from the object
 					isLinks = utils.filterLinksByGeneralitySign(isLinks, true);
@@ -454,6 +470,12 @@ public class ProblemSolver extends Object{
 									write("found a location of " + problem.logosCollection.get(0).getName());
 								}
 							}
+						} else {
+							// if the location is just an adverb ("nearby" etc.)
+							if (utils.stringArrayContains(utils.vagueLocationWords, il.target.name)) {
+								locations.add(il);
+								write("found an approximate location of " + problem.logosCollection.get(0).getName());
+							}
 						}
 					} 
 				}
@@ -463,7 +485,9 @@ public class ProblemSolver extends Object{
 					th.solutionLinkCollection.add(mostActualLocation);
 					problem.solved = true;
 				} else {
-					th.text = "Sorry, I don't know the location of " + problem.logosCollection.get(0).getName() + ".";
+					th.text = "Sorry, I don't know the location of the "
+								+ problem.logosCollection.get(1).getName() + " "
+								+ problem.logosCollection.get(0).getName() + ".";
 				}
 			} else if (problem.logosCollection.size() == 3) {
 				// Object, description and action

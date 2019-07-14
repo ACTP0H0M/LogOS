@@ -71,7 +71,7 @@ import toolkit.*;
 public class MainClass {
 	
 	// Parameters and variables
-	static int verbosity = 3;
+	static int verbosity = 0;
 	static boolean loadExternalData = true;
 	static boolean saveChanges = true;
 	static boolean serialize = true;
@@ -105,6 +105,8 @@ public class MainClass {
 	static boolean useNLP = true;			// use NLP to generate Chains if no predefined pattern matches
 	static int inferenceSteps = 5;			// how many times does LogOS try to update the database before asking the user to help
 	static float maxJaccard = 0.9f;			// the highest Jaccard index to avoid repeating in analogyMode
+	// to remember what Logos said previously, that user refers to using he/she/it/they/that/this
+	static String heReference, sheReference, itReference, thisReference, thatReference, theyReference;
 	
 	// Agents
 	static DatabaseInterface database = new DatabaseInterface(verbosity, a_min);
@@ -170,21 +172,6 @@ public class MainClass {
 			// sentence = textReader.tesseractOCR("external/sample_text_image.png", textReader.initTesseract());
 			// System.out.println(sentence);
 			//////////////////////////////////////////////
-			
-			//while (true) {
-				String sentence = "The resulting knowledge needs to be in a machine-readable and machine-interpretable format and must represent knowledge in a manner that facilitates inferencing.";
-				// Return parts of speech from a sentence found in an image with OpenNLP
-				String[] pos = textReader.POSTags(sentence);
-				// Parse a sentence with OpenNLP
-				try {
-					Parse testParse = textReader.parseSentence(sentence, parser);
-					textReader.extractRelationFromParse(testParse);
-				} catch (FileNotFoundException e) {
-					e.printStackTrace();
-				}
-				// Try it with Stanford CoreNLP - not used anymore
-				// textReader.testDependencies(sentence, props, pipeline);
-			//}
 			
 		}
 		
@@ -326,7 +313,10 @@ public class MainClass {
 				listenMode = false;
 				
 				// Graph operations to automatically expand the graph and forget irrelevant stuff
-				database.updateDatabase(utils, belief);
+				if (useNLP == false) {
+					// Database is updated in the analyzeInput() if we had to use NLP
+					database.updateDatabase(utils, belief);
+				}
 				
 				Thought output = new Thought();
 				
@@ -389,8 +379,9 @@ public class MainClass {
 				phrase = textReader.tokenizeSentence(sents[m]);
 				numTokens = phrase.length;
 				pos = textReader.POSTags(sents[m]);
-				// Look for definitions of each word in the sentence using WordNet.
+				// Look for definitions of each word in the sentence using WordNet (if not already in the database!)
 				lookupWords(pos, phrase, textReader, dict, utils);
+				
 			} else {
 				// Without external libraries we cannot parse the input.
 				return;
@@ -606,7 +597,9 @@ public class MainClass {
 			if (useNLP == true) {
 				// Parse a sentence with OpenNLP
 				try {
-					Parse testParse = textReader.parseSentence(sents[m], parser);
+					// remove punctuation in the end of the sentence
+					String sentenceWithoutEndingPunctuation = sents[m].replaceAll("\\s*\\p{Punct}+\\s*$", "");
+					Parse testParse = textReader.parseSentence(sentenceWithoutEndingPunctuation, parser);
 					// Try to generate Chains from OpenNLP Parse
 					TripletRelation tr = textReader.extractRelationFromParse(testParse);
 					
@@ -618,11 +611,13 @@ public class MainClass {
 					// try manualInput()
 					manualInput(chain);
 					
+					database.updateDatabase(utils, belief);
+					
 					// entry point for detailed analysis
-					person.applyPersonality(sents[m]);
+					person.applyPersonality(phrase, pos);
 					
 					// Handle failSafe and inWidth modes here to imitate interest.
-					/*
+					
 					if (failSafeMode && !utils.stringArraysCut(phrase, utils.uninformativeKeywords)) {
 						String[] failSafeResponses = {"That's very interesting, please go on.",
 								"Can you elaborate on that?",
@@ -665,7 +660,7 @@ public class MainClass {
 						}
 						
 					}
-					*/
+					
 					
 				} catch (FileNotFoundException e) {
 					e.printStackTrace();
@@ -676,7 +671,7 @@ public class MainClass {
 			//EXPLORATION MODE//
 			////////////////////
 			
-			/*
+			
 			if (explorationMode && !listenMode) {
 				// Find problems arising after user's input
 				ArrayList<Problem> nextProblems = prfinder.findProblems(database, utils);
@@ -700,7 +695,7 @@ public class MainClass {
 				// remember that LogOS already asked about it
 				prsolver.usedThoughtText.add(thoughts.get(0).text);
 			}
-			*/
+			
 			
 			
 			//////////////////////////
@@ -1304,6 +1299,7 @@ public class MainClass {
 			if (utils.matchesPatternLowercase(phrase, pos, "who_created_you_?")
 					|| utils.matchesPatternLowercase(phrase, pos, "who_is_your_creator_?")) {
 				write("ACTP0H0M is my creator. He is not a great programmer, but I think he is a good person.", 0);
+				heReference = "ACTP0H0M";
 				useNLP = false;
 			}
 			
@@ -2068,7 +2064,9 @@ public class MainClass {
 				useNLP = false;
 			}
 			// Where are you?
-			if (utils.matchesPatternLowercase(phrase, pos, "where_are_you_?")) {
+			if (utils.matchesPatternLowercase(phrase, pos, "where_are_you_?")
+					|| utils.matchesPatternLowercase(phrase, pos, "where_are_you_now_?")
+					|| utils.matchesPatternLowercase(phrase, pos, "where_are_you_right_now_?")) {
 				Logos selfLogos = utils.findLogosByName(database.logosList, "#SELF");
 				externalProblem.logosCollection.clear();
 				externalProblem.linkCollection.clear();
@@ -2077,6 +2075,10 @@ public class MainClass {
 				externalProblem.severity = 1.0;
 				externalProblem.type = "UNKNOWN_PLACE";
 				externalProblem.internal = false;
+				useNLP = false;
+			}
+			if (utils.matchesPatternLowercase(phrase, pos, "where_do_you_live_?")) {
+				write("I live with you, master. I go where you go.", 0);
 				useNLP = false;
 			}
 			// Where are you from?
@@ -2446,7 +2448,6 @@ public class MainClass {
 					database.logosList.add(c);
 					database.logosList.add(p);
 				}
-				
 
 			}// end token loop
 

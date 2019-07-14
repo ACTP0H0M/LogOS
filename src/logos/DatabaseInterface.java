@@ -265,6 +265,8 @@ public class DatabaseInterface implements java.io.Serializable{
 		tempStats[3] = applied;
 	}
 	
+	// Merges hypergraph nodes that encode the same thing.
+	// It means "car" in "red car" and "green car" shouldn't be merged.
 	public void mergeSameLogos(Utils utils) {
 		
 		int n_merged = 0;
@@ -282,17 +284,25 @@ public class DatabaseInterface implements java.io.Serializable{
 					
 					// are Logos mergeable?
 					int checksum = 0;
-					if (!l1.name.equals("input"))
+					if (l1.name.toLowerCase().equals(l2.name.toLowerCase())) {
 						checksum++;
-					/*if (l1.name.equals(l2.name) && mergeableLogos.contains(l1.name)) {
+					}
+					if (Math.abs(utils.maxLinkActuality(l1) - utils.maxLinkActuality(l2)) < mergeLogosActualitySpan) {
 						checksum++;
-					}*/
-					if (l1.name.toLowerCase().equals(l2.name.toLowerCase()))
-						checksum++;
-					if (Math.abs(utils.maxLinkActuality(l1) - utils.maxLinkActuality(l2)) < mergeLogosActualitySpan)
-						checksum++;
-					//if (utils.maxLinkActuality(l1) > a_min && utils.maxLinkActuality(l2) > a_min)
-						//checksum++;
+					}
+					// check whether they have different targets of "is" Links
+					ArrayList<Link> descriptions1 = utils.linksByName(l1.outwardLinks, "is");
+					descriptions1 = utils.filterLinksByGeneralitySign(descriptions1, true);
+					ArrayList<Link> descriptions2 = utils.linksByName(l2.outwardLinks, "is");
+					descriptions2 = utils.filterLinksByGeneralitySign(descriptions2, true);
+					for (Link dl1 : descriptions1) {
+						for (Link dl2 : descriptions2) {
+							if (dl1.target.name.equals(dl2.target.name)) {
+								checksum++;
+								break;
+							}
+						}
+					}
 					
 					if (checksum == 3) {
 						

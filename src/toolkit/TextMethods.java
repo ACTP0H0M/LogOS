@@ -65,6 +65,8 @@ public class TextMethods {
 	private static final String LABEL_NAME_PREFIX = "NN";
 	private static final String LABEL_VERB_PREFIX = "VB";
 	
+	private boolean existentialThere = false;
+	
 	public TextMethods(int verbosity, double belief) {
 		this.belief = belief;
 		if (verbosity >= 2) {
@@ -163,6 +165,8 @@ public class TextMethods {
 			System.out.println("TEXT_METHODS: extracted Chain from user input:");
 			System.out.println(result);
 		}
+		// reset switches
+		existentialThere = false;
 		return result;
 	}
 	
@@ -180,11 +184,15 @@ public class TextMethods {
 				}
 				branch += text + " ";
 			}
+			if (np.getChildren()[0].getType().equals("EX")) {
+				existentialThere = true;
+			}
 		} else {
 			// NP has many components
 			Parse[] np_children = np.getChildren();
 			String noun = "";
 			String adj = "";
+			String rb = "";
 			String adjp_branch = "";
 			String whnp_branch = "";
 			String pp_branch = "";
@@ -214,6 +222,10 @@ public class TextMethods {
 					}
 					branch += text + " ";
 				}
+				if (child.getType().equals("RB") && existentialThere == true) {
+					Span span = child.getSpan();
+					rb = child.getText().substring(span.getStart(), span.getEnd());
+				}
 				if (child.getType().equals("NP")) {
 					np_branch = branchFromNP(child);
 				}
@@ -238,16 +250,21 @@ public class TextMethods {
 				// nice adjective-noun pair
 				branch = "#B " + noun + " is " + adj + " B# ";
 			}
+			if (!noun.equals("") && !adj.equals("") && !rb.equals("")) {
+				// e.g. "nice restaurant nearby" => #B restaurant is nice B# is nearby
+				branch = "#B " + noun + " is " + adj + " B# is " + rb;
+			}
 			// other cases...
 			if (!np_branch.equals("") && pp_branch.equals("") && adjp_branch.equals("")) {
 				branch += np_branch + sbar_branch;
 			}
 			if (!np_branch.equals("") && !pp_branch.equals("")) {
-				branch = "#B " + np_branch + " is " + pp_branch + "B# " + sbar_branch;
+				branch = "#B " + np_branch + "is " + pp_branch + "B# " + sbar_branch;
 			}
 			if (!np_branch.equals("") && !adjp_branch.equals("")) {
-				branch = "#B " + np_branch + " is " + adjp_branch + "B# "+ sbar_branch;
+				branch = "#B " + np_branch + "is " + adjp_branch + "B# "+ sbar_branch;
 			}
+			
 		}
 		return branch;
 	}
@@ -263,8 +280,9 @@ public class TextMethods {
 			if (child.getType().startsWith("VB")) {
 				verb_type = child.getType();
 				Span span = child.getSpan();
-				verb = child.getText().substring(span.getStart(),
-						span.getEnd());
+				if (!existentialThere) {
+					verb = child.getText().substring(span.getStart(), span.getEnd());
+				}
 				if (verb.equals("don't") || verb.equals("didn't")) {
 					negation = true;
 					continue;
@@ -339,7 +357,7 @@ public class TextMethods {
 		// handle noun phrase
 		for (Parse child : vp.getChildren()) {
 			if (child.getType().equals("NP")) {
-				if (branch.endsWith("is ") || branch.endsWith("was ")) {
+				if (branch.endsWith("is ") || branch.endsWith("was ") || existentialThere) {
 					branch += branchFromNP(child);
 				} else {
 					encapsule++;

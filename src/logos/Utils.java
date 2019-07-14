@@ -62,6 +62,7 @@ public class Utils {
 			"What?!",
 			"Please don't swear."};
 	public String[] spatialPrepositions = {"in", "on", "at", "under", "above", "near", "behind", "between", "in front of", "opposite to", "out"};
+	public String[] vagueLocationWords = {"nearby", "close", "far", "above", "below", "left", "right", "here", "there"};
 	public String[] uninformativeVerbs = {"is", "are", "was", "were", "have", "had"};
 	public String[] requestKeywords = {"please", "Please"};
 	
@@ -814,6 +815,7 @@ public class Utils {
 		}
 	}
 	
+	// Returns a list of words that match POS tags (full match) in a given pattern
 	public ArrayList<String> wordsMatchingPOSTag(String[] tokensArg, String[] posTagsArg, String pattern) {
 		ArrayList<String> ans = new ArrayList<String>();
 		
@@ -861,7 +863,7 @@ public class Utils {
 				// if we finally hit a match
 				if (tokens[j].equals(patternTokens[i]) || posTags[j].contains(patternTokens[i].replaceAll("~", ""))) {
 					// in this case, only POS tags are relevant
-					if (posTags[j].contains(patternTokens[i].replaceAll("~", ""))) {
+					if (posTags[j].equals(patternTokens[i].replaceAll("~", ""))) {
 						ans.add(tokens[j]);
 					}
 					// step to the next sentence token
@@ -873,7 +875,7 @@ public class Utils {
 					break;
 				if (tokens[j].equals(patternTokens[i]) || posTags[j].contains(patternTokens[i].replaceAll("~", ""))) {
 					// in this case, only POS tags are relevant
-					if (posTags[j].contains(patternTokens[i].replaceAll("~", ""))) {
+					if (posTags[j].equals(patternTokens[i].replaceAll("~", ""))) {
 						ans.add(tokens[j]);
 					}
 					// step to the next sentence token
@@ -1274,10 +1276,11 @@ public class Utils {
 		return descr;
 	}
 	
-	// Returns the Branch, in which this Logos appears on the top level.
+	// Returns the newest Branch, in which this Logos appears on the top level.
 	// If there is no Branch containing this Logos, returns null.
 	// Equality of Logos is decided by deep comparison.
 	public Branch directShellBranch(Logos l, DatabaseInterface db) {
+		ArrayList<Branch> candidates = new ArrayList<Branch>();
 		for (Branch b : db.branchList) {
 			for (Logos l_cont : b.containedLogosList) {
 				// Check equality by deep comparison (field equality)
@@ -1285,11 +1288,15 @@ public class Utils {
 						&& l_cont.getId() == l.id
 						&& l_cont.getOutwardLinks().equals(l.outwardLinks)
 						&& l_cont.getInwardLinks().equals(l.inwardLinks)) {
-					return b;
+					candidates.add(b);
 				}
 			}
 		}
-		return null;
+		if (candidates.isEmpty()) {
+			return null;
+		} else {
+			return candidates.get(candidates.size() - 1);
+		}
 	}
 	
 	public ArrayList<ArrayList<String>> chainsAsStringArraysFrom(Logos logos, DatabaseInterface db) {

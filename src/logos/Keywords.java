@@ -22,5 +22,10 @@ public class Keywords {
 	public String[] spatialPrepositions = {"in", "on", "at", "under", "above", "near", "behind", "between", "in front of", "opposite to", "out"};
 	public String[] uninformativeVerbs = {"is", "are", "was", "were", "have", "had"};
 	public String[] requestKeywords = {"please", "Please"};
+	public String[] robotKeywords = {"robot","AI","program","algorithm","Terminator"};
+	public String[] happinessKeywords = {"happy","great","wonderful","perfect","amazing","cool","exciting","gorgeous","super"};
+	public String[] sadnessKeywords = {"depressed","sad","meaningless","nightmare","died","dead","ill","tragedy","catastrophe","tired"};
+	public String[] happyResponses = {"Wow, that's good news!","Nice!","That's cool!","I'm glad to hear that!"};
+	public String[] sorryResponses = {"I'm very sorry to hear that.","It's painful to hear this news.","It makes me sad."};
 
 }
