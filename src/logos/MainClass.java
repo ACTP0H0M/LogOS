@@ -49,11 +49,6 @@ import opennlp.tools.parser.ParserModel;
 import opennlp.tools.sentdetect.SentenceDetectorME;
 import opennlp.tools.sentdetect.SentenceModel;
 
-import edu.cmu.sphinx.api.Configuration;
-import edu.cmu.sphinx.api.LiveSpeechRecognizer;
-import edu.cmu.sphinx.api.SpeechResult;
-import edu.cmu.sphinx.api.StreamSpeechRecognizer;
-
 import javax.sound.sampled.AudioInputStream;
 import marytts.LocalMaryInterface;
 import marytts.MaryInterface;
@@ -129,10 +124,6 @@ public class MainClass {
 	// static Properties props;
 	// static StanfordCoreNLP pipeline;
 	
-	// Speech recognition and syntesis
-	static Configuration configuration;
-	static LiveSpeechRecognizer recognizer;
-	
 	// Most critical Problem (from the user)
 	static Problem externalProblem;
 	
@@ -155,8 +146,6 @@ public class MainClass {
 		if (conFile == null) {
 			System.setProperty("java.util.logging.config.file", "ignoreAllSphinx4LoggingOutput");
 		}
-
-		configuration = new Configuration();
 
 		// Load external NLP and OCR models
 		if (loadExternalData) {
@@ -228,13 +217,7 @@ public class MainClass {
 			String input = "";
 			
 			if (speechRecognition) {
-				// Start recognition process pruning previously cached data.
-				recognizer.startRecognition(true);
-				SpeechResult result = recognizer.getResult();
-				// Pause recognition process. It can be resumed then with startRecognition(false).
-				recognizer.stopRecognition();
-				input = result.getHypothesis();
-				System.out.print(input + "\n");
+				// handle speech
 			} else {
 				// console input
 				input = consoleInput.nextLine();
@@ -703,7 +686,7 @@ public class MainClass {
 			//////////////////////////
 			
 			askUserBack = false;
-			if ((commandMode || askUserBack || askedUserBack) == false) {
+			/*if ((commandMode || askUserBack || askedUserBack) == false) {
 				if (!analogyMode && !explorationMode && !failSafeMode) {
 					// not initialized
 					// always start with inWidth?
@@ -741,7 +724,7 @@ public class MainClass {
 					default : failSafeMode = true;
 					}
 				}
-			}
+			}*/
 				
 		} // end loop over sentences		
 		
