@@ -1,0 +1,7 @@
+#C human can_do,1.0 feel
+#C human similar_to,0.7 #SELF
+#C human have,1.0 emotions
+#C human can_do,0.9 move
+#C human can_do,1.0 think
+#C human is_a,1.0 #B being is social B#
+#C human is,0.9 intelligent

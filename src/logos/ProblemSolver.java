@@ -1070,6 +1070,32 @@ public class ProblemSolver extends Object{
 		};
 		break;
 		
+		case "IS_STATEMENT_TRUE": {
+			/*
+			 * TODO
+			 * The statement to be checked is represented as a tree graph.
+			 * LogOS must not simply check whether this statement is true
+			 * (find a 100% match) but it must also find similarities or
+			 * differences and be able to explain them.
+			 * Link generalities, actualities and types have to be considered. 
+			 */
+			boolean statementInDatabase = false;
+			for (Link l : problem.linkCollection) {
+				// check whether each Link has the right source and target as well as Link generality
+				boolean rightSource = false;
+				boolean rightTarget = false;
+				ArrayList<Logos> possibleSourceLogosList = utils.findAllLogosByName(database.logosList, l.source.name);
+				if (possibleSourceLogosList.isEmpty()) {
+					write("Logos [" + l.source.name + "] wasn't found in the database");
+					th.text = "I don't know anything about " + l.source.name + ".";
+					break;
+				} else {
+					
+				}
+			}
+		}
+		break;
+		
 		case "UNKNOWN_QUANTITY": {
 			// Example: How many legs does a cat have?
 			Logos arg1 = problem.logosCollection.get(0);	// cat

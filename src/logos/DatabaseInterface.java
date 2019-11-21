@@ -650,27 +650,33 @@ public class DatabaseInterface implements java.io.Serializable{
 
 						Logos logosB = outlink.target;
 
+						/*
 						if (verbose) {
 							System.out.println("\n          Found [is_a] Link with high generality");
 							System.out.println(
 									"          Its target Logos has " + logosB.outwardLinks.size() + " outward Links");
 						}
+						*/
 
 						for (Link outlinkB : logosB.outwardLinks) {
 
+							/*
 							if (verbose) {
 								System.out.println("\n          Checking outward Link [" + outlinkB.relationName + "]");
 							}
+							*/
 
 							// Check whether this Link can be inherited
 							// Don't create Links that are already there
 							if (inheritedLinks.contains(outlinkB.relationName)) {
 
+								/*
 								if (verbose) {
 									System.out.println(
 											"          Link [" + outlinkB.relationName + "-->" + outlinkB.target.name
 													+ "] can be inherited by Logos [" + logosA.name + "]");
 								}
+								*/
 
 								// Make a new direct link
 
@@ -678,7 +684,7 @@ public class DatabaseInterface implements java.io.Serializable{
 
 								// This Link was already inherited...
 								if (utils.haveSameTarget(logosB, logosA, outlinkB.relationName)) {
-									write("          However, this Link is already in the hypergraph!");
+									// write("          However, this Link is already in the hypergraph!");
 								} else {
 									long lk_idx = getMaxLinkID() + 1;
 									double g_new = outlink.generality * outlinkB.generality;
@@ -1099,9 +1105,10 @@ public class DatabaseInterface implements java.io.Serializable{
 					// Reset globally
 					int globalLinkIdx = linkList.lastIndexOf(source);
 
-					source.target = currentBranch;
-
-					currentBranch.inwardLinks.add(source);
+					if (source.target == null || source.target.id == -1) {
+						source.target = currentBranch;
+						currentBranch.inwardLinks.add(source);
+					}
 
 					linkList.set(globalLinkIdx, source);
 

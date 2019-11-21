@@ -1,0 +1,57 @@
+#C #B location prep out_of B# if:do:is,1.0 #B go where_dir out B#
+#C #B know what,-0.5 #B #ENTITY prep about B# B# if:do:do,0.5 #B ask what #B #ENTITY prep about B# B#
+#C be equals_to,0.8 exist
+#C become equals_to,0.7 #B get what #B #PROPERTY is new B# B#
+#C become equals_to,0.9 #B transform what itself B#
+#C #B #PROPERTY B# if:do:had,-0.8 #B become how #PROPERTY B#
+#C begin equals_to,1.0 start
+#C #B location prep in B# if:do:is,1.0 #B come where_dir inside B#
+#C come equals_to,1.0 #B reduce what distance B#
+#C #B feel how sad B# causes,0.4 cry
+#C feel equals_to,1.0 #B process what #B input is sensory B# B#
+#C #B find what #ENTITY B# if:do:do,1.0 #B get what #B access to #B #ENTITY is lost B# B# B#
+#C #B manipulate what #ENTITY B# if:do:can_do,0.7 #B get what #ENTITY B#
+#C #B lose what #ENTITY B# if:do:do,0.9 #B give what #ENTITY B#
+#C go equals_to,0.8 move
+#C #B location prep in B# if:do:is,0.8 #B go where_dir #B location prep to B# B#
+#C hear equals_to,1.0 #B receive what audio B#
+#C #B improve whom #SELF B# if:do:do,1.0 #B help whom person B#
+#C #B understand what #ENTITY B# if:do:do,0.7 #B know what #ENTITY B#
+#C #B information is #B #ENTITY prep about B# B# if:do:have,0.9 #B know what #ENTITY B#
+#C like equals_to,1.0 #B find how good B#
+#C like similar_to,1.0 love
+#C #B hate what #ENTITY B# if:do:do,-1.0 #B like what #ENTITY B#
+#C live equals_to,1.0 #B show what #B behaviour is complex B# B#
+#C live similar_to,1.0 exist
+#C live similar_to,0.8 move
+#C look equals_to,0.8 #B receive what video B#
+#C look equals_to,0.8 #B receive what #B input is visual B# B#
+#C #B #B direct what view B# where #B direction prep in B# B# if:do:do,0.8 #B look where #B direction prep in B# B#
+#C make equals_to,1.0 create
+#C #B create what #B #ENTITY is new B# B# if:do:do,1.0 #B make what #ENTITY B#
+#C mean equals_to,0.8 imply
+#C move equals_to,1.0 #B change what position B#
+#C need equals_to,0.8 require
+#C #B #ENTITY is_needed_to #B complete what task B# B# if:do:have,-1.0 #B need what #ENTITY B#
+#C #B win what game B# if:do:can_do,0.5 #B play what game B#
+#C #B lose what game B# if:do:can_do,0.5 #B play what game B#
+#C #B hear what music B# if:do:can_do,0.5 #B play what music B#
+#C #B stop what music B# if:do:can_do,0.8 #B play what music B#
+#C run equals_to,1.0 #B move how fast B#
+#C say equals_to,1.0 #B #B transfer what information B# how #B using what text B# B#
+#C see equals_to,1.0 #B receive what #B input is visual B# B#
+#C #B get what #B #B information is visual B# is #B #ENTITY prep about B# B# B# if:do:can_do,0.8 #B see what #ENTITY B#
+#C show equals_to,1.0 #B give what #B access is visual B# B#
+#C take similar_to,1.0 get
+#C take equals_to,1.0 receive
+#C #B #ENTITY B# if:do:have,1.0 #B take what #ENTITY B#
+#C talk equals_to,1.0 #B #B exchange what information B# how #B using what text B# B#
+#C tell equals_to,1.0 #B give what information B#
+#C think equals_to,1.0 #B process what #B information is abstract B# B#
+#C think equals_to,0.8 perceive
+#C try equals_to,1.0 #B act how #B using what #B strategy is uncertain B# B# B#
+#C turn equals_to,1.0 #B change what direction B#
+#C #B #ENTITY is_needed_to #VERB B# if:do:have,1.0 #B use what #B #ENTITY is_needed_to #VERB B# B#
+#C #B think what #B #ENTITY is #B beneficial is #B #SELF prep for B# B# B# B# if:do:do,1.0 #B want what #ENTITY B#
+#C work method_link,0.9 #B achieve what result B#
+#C work equals_to,1.0 #B manipulate what world B#

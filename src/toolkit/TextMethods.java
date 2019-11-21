@@ -198,6 +198,7 @@ public class TextMethods {
 			String pp_branch = "";
 			String np_branch = "";
 			String sbar_branch = "";
+			String prp = "";
 			for (Parse child : np_children) {
 				if (child.getType().equals("NN") || child.getType().equals("NNS")
 						|| child.getType().equals("VBG")) {
@@ -222,6 +223,19 @@ public class TextMethods {
 					}
 					branch += text + " ";
 				}
+				if (child.getType().equals("PRP$")) {
+					Span span = np.getChildren()[0].getSpan();
+					String text = np.getChildren()[0].getText().substring(span.getStart(),
+							span.getEnd());
+					if (text.equals("my") || text.equals("My")) {
+						text = "#B #USER have";
+						prp = "my";
+					} else if (text.toLowerCase().equals("your")) {
+						text = "#B #SELF have";
+						prp = "your";
+					}
+					branch += text + " ";
+				}
 				if (child.getType().equals("RB") && existentialThere == true) {
 					Span span = child.getSpan();
 					rb = child.getText().substring(span.getStart(), span.getEnd());
@@ -242,11 +256,19 @@ public class TextMethods {
 				}
 			}
 			
-			if (!noun.equals("") && adj.equals("")) {
+			if (!noun.equals("") && adj.equals("") && prp.equals("")) {
 				// just a noun
 				branch = noun + " ";
 			}
-			if (!noun.equals("") && !adj.equals("")) {
+			if (!noun.equals("") && adj.equals("") && !prp.equals("")) {
+				// noun with preposition ("my car", "your thoughts")
+				branch += noun + " B# ";
+			}
+			if (!noun.equals("") && !adj.equals("") && !prp.equals("")) {
+				// noun with preposition and adjective ("your bad code")
+				branch += "#B " + noun + " is " + adj + " B# ";
+			}
+			if (!noun.equals("") && !adj.equals("") && prp.equals("")) {
 				// nice adjective-noun pair
 				branch = "#B " + noun + " is " + adj + " B# ";
 			}
@@ -302,12 +324,12 @@ public class TextMethods {
 		// check for Link keywords like "is", "was", "causes", "have been" etc.
 		if (!verb.isEmpty()) {
 			if (verb.equals("is") || verb.equals("are")) {
-				branch = "is ";	// no generality input, correct this in the manualInput()
+				branch = "is ";
 				if (negation) {
-					branch = "isn't ";
+					branch = "is,-0.5 ";
 				}
 			} else if (verb.equals("was") || verb.equals("were")) {
-				branch = "was ";	// no generality input, correct this in the manualInput()
+				branch = "was ";
 			} else {
 				// normal verbs, no Link keywords
 				encapsule++;
@@ -315,13 +337,16 @@ public class TextMethods {
 					// past tense
 					branch = "did #B " + verb + " ";
 					if (negation) {
-						branch = "did't #B ";
+						branch = "did,-0.5 #B ";
 					}
+				} else if (verb_type.equals("VBG")) {
+					// present continuous
+					branch = "#B " + verb + " ";
 				} else {
 					// present
 					branch = "do #B " + verb + " ";
 					if (negation) {
-						branch = "don't #B ";
+						branch = "do,-0.5 #B ";
 					}
 				}
 			}
@@ -525,7 +550,17 @@ public class TextMethods {
 				return adj + " ";
 			}
 		} else if (adjp.getChildCount() == 2) {
-			// TODO multiple adjectives
+			String firstTag = adjp.getChildren()[0].getType();
+			Span firstSpan = adjp.getChildren()[0].getSpan();
+			String firstWord = adjp.getChildren()[0].getText().substring(firstSpan.getStart(),firstSpan.getEnd());
+			String secondTag = adjp.getChildren()[1].getType();
+			Span secondSpan = adjp.getChildren()[1].getSpan();
+			String secondWord = adjp.getChildren()[1].getText().substring(secondSpan.getStart(),secondSpan.getEnd());
+			if (firstTag.equals("JJR") && secondTag.equals("JJ")) {
+				return "#B " + secondWord + " is " + firstWord + " B# ";
+			} else if (firstTag.equals("RBR") && secondTag.equals("JJ")) {
+				return "#B " + secondWord + " is " + firstWord + " B# ";
+			}
 		}
 		return branch;
 	}

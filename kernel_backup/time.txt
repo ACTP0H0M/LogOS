@@ -1,0 +1,4 @@
+#C day equals_to,1.0 #B hour how_many 24 B#
+#C week equals_to,1.0 #B day how_many 7 B#
+#C hour equals_to,1.0 #B minute how_many 60 B#
+#C minute equals_to,1.0 #B second how_many 60 B#

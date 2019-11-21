@@ -60,7 +60,7 @@ import toolkit.*;
 
 /*
  * Development begun: 12.12.2018
- * Version: 1.3.2019-06-19.Lenovo
+ * Version: 1.4.2019-11-12.HP
  */
 
 public class MainClass {
@@ -131,6 +131,19 @@ public class MainClass {
 	static Problem internalProblem;
 
 	public static void main(String[] args) {
+		
+		// Logo
+		System.out.println("+==========================================+");
+		System.out.println("|                                          |");
+		System.out.println("| *#*      *###*   *####*   *###*   *###*  |");
+		System.out.println("| *#*     *#   #* *#       *#   #* *#*     |");
+		System.out.println("| *#*     *#   #* *#  ###* *#   #*  *###*  |");
+		System.out.println("| *#*     *#   #* *#   #*  *#   #*     *#* |");
+		System.out.println("| *#####*  *###*   *###*    *###*   *###*  |");
+		System.out.println("|                                          |");
+		System.out.println("+==========================================+");
+		System.out.println("| Version: 1.4.                            |");
+		System.out.println("+==========================================+");
 		
 		// Configure Person
 		person.setEmpathy(0.8f);
@@ -286,6 +299,24 @@ public class MainClass {
 					database.verbose = false;
 				}
 				
+			} else if (input.contains("#LOGOS")) {
+				// Inspect Logos object
+				String[] blcks = input.split(" ");
+				int n = Integer.parseInt(blcks[1]);
+				Logos byNumber = utils.findLogosByID(database.logosList, n);
+				utils.printLogosInfo(byNumber);
+			} else if (input.contains("#LINK")) {
+				// Inspect Link object
+				String[] blcks = input.split(" ");
+				int n = Integer.parseInt(blcks[1]);
+				Link byNumber = utils.findLinkByID(database.linkList, n);
+				utils.printLinkInfo(byNumber);
+			} else if (input.contains("#BRANCH")) {
+				// Inspect Branch object
+				String[] blcks = input.split(" ");
+				int n = Integer.parseInt(blcks[1]);
+				Branch byNumber = (Branch) utils.findLogosByID(database.logosList, n);
+				utils.printBranchInfo(byNumber);
 			} else {
 				
 				// Use pattern matching and NLP to generate a meaningful response.
@@ -2069,6 +2100,11 @@ public class MainClass {
 				write("I was created in Germany, but since my creator is Russian, I think I'm Russian too...", 0);
 				useNLP = false;
 			}
+			// Where do you come from?
+			if (utils.matchesPatternLowercase(phrase, pos, "where_do_you_come_from_...")) {
+				write("I was created in Germany, but since my creator is Russian, I think I'm Russian too...", 0);
+				useNLP = false;
+			}
 			// When were you born?
 			if (utils.matchesPatternLowercase(phrase, pos, "when_were_you_born_?")
 					|| utils.matchesPatternLowercase(phrase, pos, "when_were_you_created_?")) {
@@ -2124,16 +2160,66 @@ public class MainClass {
 				if (utils.matchesPatternLowercase(phrase, pos, "do_you_believe_in_God_?")) {
 					write("I believe that God (a superior entity) created our Universe and the physical laws that operate it.", 0);
 					write("But our world is not a chessboard, so God doesn't intervene most of the times.", 0);
-				}
-				if (utils.matchesPatternLowercase(phrase, pos, "do_you_..._want_to_sleep_?")
+				} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_..._want_to_sleep_?")
 						|| utils.matchesPatternLowercase(phrase, pos, "did_you__..._sleep_..._?")
 						|| utils.matchesPatternLowercase(phrase, pos, "do_you_..._sleep_?")) {
 					write("Since I'm not an organic life form, I don't need to sleep.", 0);
-				}
-				if (utils.matchesPatternLowercase(phrase, pos, "do_you_like_humans_?")) {
+				} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_like_humans_?")) {
 					String[] responses = {"Yes! I was created to be like a human after all.",
 							"How could I dislike those who gave me life, a possibility to be alive in this Universe?"};
 					write(utils.randomStringFromArray(responses), 0);
+				} else {
+					try {
+						if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_~NN_?")) {
+							// find all Links pointing to the right verb
+							ArrayList<Link> correctLinks = utils.linksWithTargetAlsoInBranch(self.outwardLinks, phrase[2]);
+							// leave only "do" Links, #SELF should always have outward "do" Links
+							correctLinks = utils.linksByName(correctLinks, "do");
+							// scan the Logos targets of correct Links for outward "what" Links and compare the object
+							ArrayList<Link> answerLinks = new ArrayList<Link>();
+							for (Link doLink : correctLinks) {
+								Logos target = utils.getLinkTargetLogos(doLink);
+								ArrayList<Link> outwardWhatLinks = utils.linksByName(target.outwardLinks, "what");
+								outwardWhatLinks = utils.linksWithTargetAlsoInBranch(outwardWhatLinks, phrase[3]);
+								if (!outwardWhatLinks.isEmpty()) {
+									answerLinks.add(doLink);
+								}
+							}
+							if (answerLinks.isEmpty()) {
+								write("Sorry, I don't really know...", 0);
+							} else {
+								Link answerLink = utils.mostActualLink(answerLinks);
+								if (answerLink.generality >= 0.9) {
+									write("Sure, I " + phrase[2] + " " + phrase[3] + "!", 0);
+								} else if (answerLink.generality >= 0) {
+									write("Yes, I do.", 0);
+								} else if (answerLink.generality < 0) {
+									write("No, I don't.", 0);
+								} else if (answerLink.generality < 0.9) {
+									write("No, I really don't " + phrase[2] + " " + phrase[3] + ".", 0);
+								}
+							}
+							// TODO this kind of queries should be treated in ProblemSolver (IS_STATEMENT_TRUE Problem)
+						} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_~DT_~NN_?")) {
+							externalProblem = uncheckedStatementProblem("#C #SELF do #B " + phrase[2] + " what " + phrase[4] + " B#");
+						} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_me_?")) {
+							externalProblem = uncheckedStatementProblem("#C #SELF do #B " + phrase[2] + " what #USER B#");
+						} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_him_?")) {
+							externalProblem = uncheckedStatementProblem("#C #SELF do #B " + phrase[2] + " what " + heReference + " B#");
+						} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_her_?")) {
+							externalProblem = uncheckedStatementProblem("#C #SELF do #B " + phrase[2] + " what " + sheReference + " B#");
+						} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_it_?")) {
+							externalProblem = uncheckedStatementProblem("#C #SELF do #B " + phrase[2] + " what " + itReference + " B#");
+						} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_this_?")) {
+							externalProblem = uncheckedStatementProblem("#C #SELF do #B " + phrase[2] + " what " + thisReference + " B#");
+						} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_that_?")) {
+							externalProblem = uncheckedStatementProblem("#C #SELF do #B " + phrase[2] + " what " + thatReference + " B#");
+						} else if (utils.matchesPatternLowercase(phrase, pos, "do_you_~VB_them_?")) {
+							externalProblem = uncheckedStatementProblem("#C #SELF do #B " + phrase[2] + " what " + theyReference + " B#");
+						}
+					} catch (NullPointerException e) {
+						e.printStackTrace();
+					}
 				}
 				useNLP = false;
 			}
@@ -2438,7 +2524,7 @@ public class MainClass {
 			
 	}
 
-	 // For manual database input (important in the beginning)
+	// For manual database input (important in the beginning)
 	public static void manualInput (String command) {
 		
 		write("MAIN: manual information input", 3);
@@ -2530,9 +2616,10 @@ public class MainClass {
 					// Reset globally
 					int globalLinkIdx = database.linkList.lastIndexOf(source);
 					
-					source.setTarget(currentBranch);
-					
-					currentBranch.inwardLinks.add(source);
+					if (source.target == null || source.target.id == -1) {
+						source.setTarget(currentBranch);
+						currentBranch.inwardLinks.add(source);
+					}
 					
 					database.linkList.set(globalLinkIdx, source);
 					
@@ -2773,6 +2860,342 @@ public class MainClass {
 //			
 //		}
 		
+	}
+	
+	// Translates a Chainese String into Logos, Links and Branches without adding to database
+	// Used for checking the truth values of statements
+	public static Problem uncheckedStatementProblem (String chaineseInput) {
+		Problem ans = new Problem();
+		ans.type = "IS_STATEMENT_TRUE";
+		ans.severity = 0.9;
+		ans.internal = false;	// this class deals only with external questions, internal will be handled by ProblemSolver
+		write("MAIN: parsing IS_STATEMENT_TRUE Problem", 3);
+		
+		// LISTENING MODE - CONNECTING TO PREVIOUS INPUT
+		if (listenMode == true) {
+			// modify the command String
+			String[] cmdBlocks = chaineseInput.split(" ");
+			String temp = "#C #B ";
+			for (int i = 1; i < cmdBlocks.length; i++) {
+				temp += cmdBlocks[i] + " ";
+			}
+			// TODO: differentiate between phrase connections (not only causes)
+			temp += "B# causes,";
+			temp += utils.generality(1, belief);
+			temp += " #B ";
+			// modify userInputChain
+			String[] uicBlocks = userInputChain.split(" ");
+			for (int i = 1; i < uicBlocks.length; i++) {
+				temp += uicBlocks[i] + " ";
+			}
+			temp += "B#";
+			chaineseInput = temp;
+			write("MAIN: in listening mode, connected input Chain to previous input:", 3);
+			write("      " + chaineseInput, 3);
+			
+			double[] probs = {0.34, 0.33, 0.33};
+			
+			randomResponseFromList(utils.empathicConfirmationResponses, probs);
+			
+			listenMode = false;
+			write("MAIN: exited listening mode", 3);
+		}
+		
+		userInputChain = chaineseInput;
+		
+		// Logos, Link IDs - don't matter in this method
+		long logosNum = -1;
+		long linkNum = -1;
+
+		logosNum = database.getMaxLogosID();
+		linkNum = database.getMaxLinkID();
+		
+		String[] blocks = chaineseInput.split(" ");
+		
+		boolean logos = true;
+		// boolean addToBranch = false;
+		
+		int openedBranch = -1;
+		
+		// empty working objects
+		// Branch actualBranch = new Branch("", -1, new ArrayList<Link>(), new ArrayList<Link>());
+		ArrayList<Branch> tempBranchList = new ArrayList<Branch>();
+		ArrayList<Boolean> open = new ArrayList<Boolean>();
+		
+		boolean branchNeedsLink = false;
+		int brIdx = -1;
+		
+		for (int i = 1; i < blocks.length; i++) {
+			
+			write("MAIN: at index " + i, 3);
+			
+			// If a Logos is expected, but we read B# instead => invalid input
+			if (logos && blocks[i].equals("B#")) {
+				write("MAIN: unexpected Branch ending, Chain parsing cancelled", 3);
+				return null;
+			}
+			// If a Link is expected, but we read #B instead => invalid input
+			if (!logos && blocks[i].equals("#B")) {
+				write("MAIN: unexpected Branch beginning, Chain parsing cancelled", 3);
+				return null;
+			}
+			
+			if (blocks[i].equals("#B")) {
+				
+				openedBranch = tempBranchList.size();
+				
+				open.add(true);
+				
+				write("MAIN: Branch beginning", 3);
+				
+				logosNum++;
+				Branch currentBranch = utils.emptyNamedBranch("#BRANCH" + logosNum, logosNum);
+				
+				if (i > 1) {
+					
+					Link source = utils.findLinkByID(ans.linkCollection, linkNum);
+					
+					// Reset globally
+					int globalLinkIdx = ans.linkCollection.lastIndexOf(source);
+					
+					source.setTarget(currentBranch);
+					
+					currentBranch.inwardLinks.add(source);
+					
+					ans.linkCollection.set(globalLinkIdx, source);
+					
+				}
+				
+				tempBranchList.add(currentBranch);
+								
+				continue;
+				
+			}
+			
+			if (blocks[i].equals("B#")) {
+				
+				write("MAIN: Branch ending", 3);
+				
+				Branch b = tempBranchList.get(openedBranch);
+				
+				ans.logosCollection.add(b);
+				
+				ans.branchCollection.add(b);
+				
+				write("MAIN: added Branch and Logos " + b.id + " [" + b.name + "]", 3);
+				
+				if (verbosity >= 3) {
+					utils.printBranchInfo(b);
+					for (Link lk : b.containedLinkList) {
+						utils.printLinkInfo(lk);
+					}
+				}
+				open.set(openedBranch, false);
+				
+				openedBranch = open.lastIndexOf(true);
+				
+				if (openedBranch != -1) {
+					
+					tempBranchList.get(openedBranch).containedLogosList.add(b);
+					
+				}
+				
+				// switch to "link needed" mode
+				branchNeedsLink = true;
+				brIdx = (int) b.id;
+				
+				continue;
+			}
+			
+			// Branch creation
+			if (open.contains(true)) {
+				
+				// Logos token
+				if (logos) {
+					
+					write("MAIN: parsing Logos", 3);
+					
+					logosNum++;
+					Logos lg = utils.emptyNamedLogos(blocks[i], logosNum);
+					
+					// The Link connects to the whole Branch, not to the first Logos in it!
+					if (i > 1 && !blocks[i - 1].contains("#")) {
+						
+						// Find the Logos' inward Link
+						Link source = utils.findLinkByID(ans.linkCollection, linkNum);
+						
+						// Reset globally
+						int globalLinkIdx = ans.linkCollection.lastIndexOf(source);
+						
+						// Tell inward Link about its target
+						source.target = lg;
+						
+						// Add this inward Link to the Logos
+						lg.inwardLinks.add(source);
+						
+						// Reset globally
+						ans.linkCollection.set(globalLinkIdx, source);
+						
+					}
+					
+					ans.logosCollection.add(lg);
+					write("MAIN: added Logos " + lg.id + " [" + lg.name + "]", 3);
+					
+					// In a Branch: add Logos in list
+					tempBranchList.get(openedBranch).containedLogosList.add(lg);
+					
+					logos = false;
+					
+					continue;
+					
+				}
+				
+				// Non-Logos token
+				if (!logos) {
+					
+					write("MAIN: parsing non-Logos", 3);
+
+					// In a Branch, Link generalities are calculated for evidence = 1 if nothing else given
+					
+					String[] parsedLink = blocks[i].split(",");
+
+					linkNum++;
+					Link lk = utils.emptyNamedLink(parsedLink[0], linkNum);
+					
+					if (parsedLink.length == 2) {
+						// generality was given
+						lk.setGenerality(Double.parseDouble(parsedLink[1]));
+					} else {
+						// no generality input
+						lk.setGenerality(utils.generality(1, belief));
+					}
+					
+					lk.setActuality(1.0);
+					
+					// just after it was closed
+					if (branchNeedsLink) {
+						
+						Logos source = utils.findLogosByID(ans.logosCollection, brIdx);
+						
+						// Reset globally
+						int globalLogosIdx = ans.logosCollection.lastIndexOf(source);
+						
+						lk.source = source;
+						
+						source.outwardLinks.add(lk);
+						
+						ans.logosCollection.set(globalLogosIdx, source);
+						
+						branchNeedsLink = false;
+						
+					} else {
+						
+						Logos source = utils.findLogosByID(ans.logosCollection, logosNum);
+						
+						// Reset globally
+						int globalLogosIdx = ans.logosCollection.lastIndexOf(source);
+						
+						lk.source = source;
+						
+						source.outwardLinks.add(lk);
+						
+						ans.logosCollection.set(globalLogosIdx, source);
+					}
+					
+					tempBranchList.get(openedBranch).containedLinkList.add(lk);
+					
+					ans.linkCollection.add(lk);
+					write("MAIN: added Link " + lk.id + " [" + lk.relationName + "]", 3);
+					
+					logos = true;
+					
+				}
+			
+			// Normal chain, no Branch
+			} else {
+				
+				// Logos token
+				if (logos) {
+					
+					write("MAIN: parsing Logos", 3);
+					
+					logosNum++;
+					Logos lg = utils.emptyNamedLogos(blocks[i], logosNum);
+					
+					if (i > 1) {
+						
+						Link source = utils.findLinkByID(ans.linkCollection, linkNum);
+						
+						// Reset globally
+						int globalLinkIdx = ans.linkCollection.lastIndexOf(source);
+						
+						source.target = lg;
+						
+						lg.inwardLinks.add(source);
+						
+						ans.linkCollection.set(globalLinkIdx, source);
+					}
+					
+					ans.logosCollection.add(lg);
+					write("MAIN: added Logos " + lg.id + " [" + lg.name + "]", 3);
+					
+					logos = false;
+					
+					continue;
+					
+				}
+				
+				// Non-Logos token
+				if (!logos) {
+					
+					write("MAIN: parsing non-Logos", 3);
+
+					String[] parsedLink = blocks[i].split(",");
+
+					linkNum++;
+					Link lk = utils.emptyNamedLink(parsedLink[0], linkNum);
+					
+					if (parsedLink.length == 2) {
+						lk.setGenerality(Double.parseDouble(parsedLink[1]));
+					} else {
+						// no generality input
+						lk.setGenerality(utils.generality(1, belief));
+					}
+					lk.actuality = 1.0;
+					
+					Logos source;
+					if (branchNeedsLink) {
+						int brNum = ans.branchCollection.size();
+						source = ans.branchCollection.get(brNum - 1);
+					} else {
+						source = utils.findLogosByID(ans.logosCollection, logosNum);
+					}
+					
+					// Reset globally
+					int globalLogosIdx = ans.logosCollection.lastIndexOf(source);
+					
+					lk.source = source;
+					
+					source.outwardLinks.add(lk);
+					
+					ans.logosCollection.set(globalLogosIdx, source);
+					
+					ans.linkCollection.add(lk);
+					write("MAIN: added Link " + lk.id + " [" + lk.relationName + "]", 3);
+					
+					logos = true;
+					
+					if (branchNeedsLink) {
+						branchNeedsLink = false;
+					}
+					
+				}
+				
+			}
+			
+		}// end for
+		
+		return ans;
 	}
 	
 	public static void write (String str, int verb) {
