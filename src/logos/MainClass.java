@@ -299,6 +299,14 @@ public class MainClass {
 					database.verbose = false;
 				}
 				
+				System.out.println("\nVERBOSE:");
+				System.out.println("DATABASE_INTERFACE: " + database.verbose);	// basic information management
+				System.out.println("PERSON: " + prfinder.verbose);				// understanding and thinking processes
+				System.out.println("PROBLEM_FINDER: " + prfinder.verbose);
+				System.out.println("PROBLEM_SOLVER: " + prsolver.verbose);
+				System.out.println("TEXT_METHODS: " + textReader.verbose);
+				System.out.println("UTILS: " + utils.verbose);
+				
 			} else if (input.contains("#LOGOS")) {
 				// Inspect Logos object
 				String[] blcks = input.split(" ");

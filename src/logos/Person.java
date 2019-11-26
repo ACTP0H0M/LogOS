@@ -233,14 +233,14 @@ public class Person {
 		if (utils.matchesPatternLowercase(sentence, pos, "I_am_not_~DT_~NN_.")
 				|| utils.matchesPatternLowercase(sentence, pos, "I_'m_not_~DT_~NN_.")) {
 			say("I'm sorry, I will remember this.");
-			MainClass.database.manualInput("#C #USER is_a,-1.0 " + sentence[4], utils);
+			MainClass.manualInput("#C #USER is_a,-1.0 " + sentence[4]);
 			return;
 		}
 		// I can VB DT NN (I can sing a song)
 		if (utils.matchesPatternLowercase(sentence, pos, "I_can_~VB_~DT_~NN_...")) {
 			say("Where did you learn this?");
 			MainClass.itReference = sentence[2] + " " + sentence[3] + " " + sentence[4];
-			MainClass.database.manualInput("#C #USER can_do,0.5 #B " + sentence[2] + " what " + sentence[4] + " B#", utils);
+			MainClass.manualInput("#C #USER can_do,0.5 #B " + sentence[2] + " what " + sentence[4] + " B#");
 			return;
 		}
 		// What is your favourite ...?
@@ -274,6 +274,73 @@ public class Person {
 				say("Hypercube. And yours?");
 				return;
 			}
+		}
+		// I'm / I am reading a book. He is reading a book.
+		if (utils.matchesPatternLowercase(sentence, pos, "~PRP_~VBP_~VBG_~DT_~NN_...")) {
+			String subject = "";
+			String verb = "";
+			String object = "";
+			switch (sentence[0].toLowerCase()) {
+			case "i" : 		subject = "#USER"; break;
+			case "he" : 	subject = MainClass.heReference; break;
+			case "she" : 	subject = MainClass.sheReference; break;
+			case "it" :		subject = MainClass.itReference; break;
+			case "they" : 	subject = MainClass.theyReference; break;
+			case "you" : 	subject = "#SELF"; break;
+			case "we" :		subject = "#B #USER and #SELF B#"; break;
+			default : subject = sentence[0].toLowerCase();
+			}
+			try {
+				verb = sentence[2].toLowerCase().substring(0, sentence[2].length() - 3);
+			} catch (IndexOutOfBoundsException e) {
+				return;
+			}
+			object = sentence[4].toLowerCase();
+			MainClass.manualInput("#C " + subject + " do #B " + verb + " what " + object + " B#");
+		}
+		// I'm eating lunch.
+		if (utils.matchesPatternLowercase(sentence, pos, "~PRP_~VBP_~VBG_~NN_...")) {
+			String subject = "";
+			String verb = "";
+			String object = "";
+			switch (sentence[0].toLowerCase()) {
+			case "i" : 		subject = "#USER"; break;
+			case "he" : 	subject = MainClass.heReference; break;
+			case "she" : 	subject = MainClass.sheReference; break;
+			case "it" :		subject = MainClass.itReference; break;
+			case "they" : 	subject = MainClass.theyReference; break;
+			case "you" : 	subject = "#SELF"; break;
+			case "we" :		subject = "#B #USER and #SELF B#"; break;
+			default : subject = sentence[0].toLowerCase();
+			}
+			try {
+				verb = sentence[2].toLowerCase().substring(0, sentence[2].length() - 3);
+			} catch (IndexOutOfBoundsException e) {
+				return;
+			}
+			object = sentence[3].toLowerCase();
+			MainClass.manualInput("#C " + subject + " do #B " + verb + " what " + object + " B#");
+		}
+		// We are talking.
+		if (utils.matchesPatternLowercase(sentence, pos, "~PRP_~VBP_~VBG_...")) {
+			String subject = "";
+			String verb = "";
+			switch (sentence[0].toLowerCase()) {
+			case "i" : 		subject = "#USER"; break;
+			case "he" : 	subject = MainClass.heReference; break;
+			case "she" : 	subject = MainClass.sheReference; break;
+			case "it" :		subject = MainClass.itReference; break;
+			case "they" : 	subject = MainClass.theyReference; break;
+			case "you" : 	subject = "#SELF"; break;
+			case "we" :		subject = "#B #USER and #SELF B#"; break;
+			default : subject = sentence[0].toLowerCase();
+			}
+			try {
+				verb = sentence[2].toLowerCase().substring(0, sentence[2].length() - 3);
+			} catch (IndexOutOfBoundsException e) {
+				return;
+			}
+			MainClass.manualInput("#C " + subject + " do " + verb);
 		}
 		
 		

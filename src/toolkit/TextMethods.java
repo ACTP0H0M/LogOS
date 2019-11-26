@@ -172,9 +172,19 @@ public class TextMethods {
 	
 	public String branchFromNP(Parse np) {
 		String branch = "";
+		String noun = "";
+		String adj = "";
+		String rb = "";
+		String adjp_branch = "";
+		String whnp_branch = "";
+		String pp_branch = "";
+		String np_branch = "";
+		String sbar_branch = "";
+		String prp = "";
 		if (np.getChildCount() == 1) {
-			if (np.getChildren()[0].getType().equals("PRP")) {
-				Span span = np.getChildren()[0].getSpan();
+			String childType = np.getChildren()[0].getType();
+			Span span = np.getChildren()[0].getSpan();
+			if (childType.equals("PRP")) {
 				String text = np.getChildren()[0].getText().substring(span.getStart(),
 						span.getEnd());
 				if (text.equals("I")) {
@@ -184,29 +194,25 @@ public class TextMethods {
 				}
 				branch += text + " ";
 			}
-			if (np.getChildren()[0].getType().equals("EX")) {
+			if (childType.equals("EX")) {
 				existentialThere = true;
+			}
+			if (childType.equals("NN") || childType.equals("NNS")
+					|| childType.equals("VBG") || childType.equals("NNP")) {
+				noun = np.getChildren()[0].getText().substring(span.getStart(), span.getEnd());
+				branch = noun + " ";
 			}
 		} else {
 			// NP has many components
 			Parse[] np_children = np.getChildren();
-			String noun = "";
-			String adj = "";
-			String rb = "";
-			String adjp_branch = "";
-			String whnp_branch = "";
-			String pp_branch = "";
-			String np_branch = "";
-			String sbar_branch = "";
-			String prp = "";
 			for (Parse child : np_children) {
 				if (child.getType().equals("NN") || child.getType().equals("NNS")
-						|| child.getType().equals("VBG")) {
+						|| child.getType().equals("VBG") || child.getType().equals("NNP")) {
 					Span span = child.getSpan();
 					noun = child.getText().substring(span.getStart(),
 							span.getEnd());
 				}
-				if (child.getType().equals("JJ")) {
+				if (child.getType().equals("JJ") || child.getType().equals("JJS")) {
 					Span span = child.getSpan();
 					adj = child.getText().substring(span.getStart(),
 							span.getEnd());

@@ -59,7 +59,10 @@ public class Keywords {
 			"gorgeous",
 			"extatic",
 			"super",
-			"excited"};
+			"excited",
+			"well",
+			"good",
+			"alright"};
 	public String[] negativeEmotions = {"depressed",
 			"sad",
 			"tired",

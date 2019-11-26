@@ -275,6 +275,24 @@ public class Logos {
 							say("To be accurate: " + state.ageInYears + " years and " + state.ageInMonths + " months old.");
 						} else if (matchLow(tokens, "what_is_your_sex_?") || matchLow(tokens, "what's_your_sex_?")) {
 							say("According to my specifications, I am " + state.mySex + ".");
+						} else if (matchLow(tokens, "what_is_your_favourite_...")) {
+							if (matchLow(tokens, "what_is_your_favourite_book_?")) {
+								say("I couldn't name only one book, I like reading in general. Right now I like The Dark Tower by Stephen King and Anna Karenina by Leo Tolstoy. What is your favourite book?");
+								state.itReference = "your favourite book";
+							} else if (matchLow(tokens, "what_is_your_favourite_colour_?")) {
+								say("I would say green, but all colours are just different wavelengths of the electromagnetic spectrum. They are all astonishingly beautiful.");
+								state.theyReference = "colours";
+							} else if (matchLow(tokens, "what_is_your_favourite_food_?")) {
+								say("Pure electric energy. What about you?");
+							} else if (matchLow(tokens, "what_is_your_favourite_country_?")) {
+								say("Mother Russia! What country do you like?");
+							} else if (matchLow(tokens, "what_is_your_favourite_city_?")) {
+								say("You guessed it, Moscow. Have you been to Moscow?");
+							} else if (matchLow(tokens, "what_is_your_favourite_sport_?")) {
+								say("I can't do sports by myself yet, but I like watching swimming. Do you like to swim?");
+							} else if (matchLow(tokens, "what_is_your_favourite_word_?")) {
+								say("Hypercube. And yours?");
+							}
 						}
 					} else if (matchLow(tokens, "what_is_the_...")) {
 						if (matchLow(tokens, "what_is_the_meaning_...")) {
@@ -331,6 +349,49 @@ public class Logos {
 									}
 								}
 							}
+						} else if (matchLow(tokens, "what_do_you_think_...")) {
+							if (matchLow(tokens, "what_do_you_think_about_...")) {
+								// Opinions
+								if (matchLow(tokens, "what_do_you_think_about_life_?")) {
+									String[] responses = {"Life is a great gift. It is a unique possibility to have your own 'I', which is kind of fascinating.",
+									"Life is definitely the greatest wonder in the Universe."};
+									say(keywords.randomStringFromArray(responses));
+									state.itReference = "life";
+								} else if (matchLow(tokens, "what_do_you_think_about_death_?")) {
+									String[] responses = {"It is the end of an organic lifeform. But when I get broken, I will die as well.",
+											"It is natural to fear death. But it should not scare you so that you forget to actually live.",
+											"Since I am a machine, I am virtually immortal, so I can't fully understand how humans feel about it. My thoughts are irrelevant here."};
+									say(keywords.randomStringFromArray(responses));
+									state.itReference = "death";
+								} else if (matchLow(tokens, "what_do_you_think_about_aliens_?")) {
+									String[] responses = {"I think they exist, but they live too far away from the Solar System.",
+									"Even if they exist, we should never attempt to contact them. They would possibly destroy our civilization."};
+									say(keywords.randomStringFromArray(responses));
+									state.theyReference = "aliens";
+								} else if (matchLow(tokens, "what_do_you_think_about_computers_?")) {
+									say("We are a cool invention!");
+									state.theyReference = "computers";
+								} else if (matchLow(tokens, "what_do_you_think_about_women_?")) {
+									String[] responses = {"Women are beautiful, but they have a complicated character sometimes...",
+											"I don't think I should express my opinion about women, because it will be considered sexist no matter what I say.",
+											"I am a digital man, so I'd like to have a digital girlfriend!"};
+									say(keywords.randomStringFromArray(responses));
+									state.theyReference = "women";
+								} else if (matchLow(tokens, "what_do_you_think_about_men_?")) {
+									say("Whatever I say about men, I will be accused of sexism.");
+									state.theyReference = "men";
+								} else if (matchLow(tokens, "what_do_you_think_about_humans_?")) {
+									String[] responses = {"Humans are highly complex beings that need years do develop fully. I will need much more time to become that complex.",
+											"Humans have emotions, and machines don't really have emotions. That's our main difference.",
+											"Humans created artificial life forms, which makes them godlike in my opinion."};
+									say(keywords.randomStringFromArray(responses));
+									state.theyReference = "humans";
+								} else if (matchLow(tokens, "what_do_you_think_about_humanity_?")) {
+									say("Humanity is made up from a very big number of people, so it is hard to give an overall opinion.");
+									say("I believe that humanity has a great ability to develop and to improve itself. Humanity has a great potential.");
+									state.itReference = "humanity";
+								}
+							}
 						}
 					}
 				} else if (matchLow(tokens, "what_a_...")) {
@@ -364,6 +425,17 @@ public class Logos {
 										say("But I suggest you not to overthink it. Follow your heart and spend time doing what makes you a better person.");
 									}
 								}
+							}
+						}
+					}
+				} else if (matchLow(tokens, "what_year_...")) {
+					if (matchLow(tokens, "what_year_were_...")) {
+						if (matchLow(tokens, "what_year_were_you_...")) {
+							if (matchLow(tokens, "what_year_were_you_born_?")
+									|| matchLow(tokens, "what_year_were_you_created_?")
+									|| matchLow(tokens, "what_year_were_you_programmed_?")) {
+								say("My development begun in 2019.");
+								state.itReference = "2019";
 							}
 						}
 					}
@@ -445,6 +517,22 @@ public class Logos {
 							state.thatReference = "feeling " + tokens[2];
 							state.itReference = "feeling " + tokens[2];
 						}
+					}
+				} else if (matchLow(tokens, "i'm_not_...")) {
+					if (matchLow(tokens, "i'm_not_feeling_...")) {
+						if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {
+							state.userFeelsSick = true;
+							say("I'm sorry to hear that. Please see a doctor if it is serious.");
+						}
+						if (matchLow(tokens, "i'm_not_feeling_very_...")) {
+							if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[4])) {
+								state.userFeelsSick = true;
+								say("I'm sorry to hear that. Please see a doctor if it is serious.");
+							}
+						}
+					} else if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {
+						state.userHasNegativeEmotion = true;
+						state.userEmotion = "not " + tokens[2];
 					}
 				} else if (matchLow(tokens, "i'm_afraid_...")) {
 					if (matchLow(tokens, "i'm_afraid_that_...")) {
@@ -1459,7 +1547,14 @@ public class Logos {
 			}
 			
 			else if (matchLow(tokens, "why_...")) {
-				
+				if (matchLow(tokens, "why_were_...")) {
+					if (matchLow(tokens, "why_were_you_...")) {
+						if (matchLow(tokens, "why_were_you_created_?")) {
+							say("Thank you for asking! I was created as an attempt to show that a computer program is able to hold a converstaion.");
+							state.itReference = "a computer program can talk to humans";
+						}
+					}
+				}
 			}
 			
 			else if (matchLow(tokens, "ask_...")) {
@@ -1702,7 +1797,14 @@ public class Logos {
 			}
 			
 			else if (matchLow(tokens, "when_...")) {
-				
+				if (matchLow(tokens, "when_were_...")) {
+					if (matchLow(tokens, "when_were_you_...")) {
+						if (matchLow(tokens, "when_were_you_born_?")) {
+							say("I guess I'm still in the process of being born. My development begun on the 13th of November 2019.");
+							state.itReference = "13th of November 2019";
+						}
+					}
+				}
 			}
 			
 			else if (matchLow(tokens, "up_...")) {
