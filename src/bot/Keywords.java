@@ -69,7 +69,8 @@ public class Keywords {
 			"down",
 			"bad",
 			"exhausted",
-			"annoyed"};
+			"annoyed",
+			"terrible"};
 	public String[] colours = {"red", "orange", "yellow", "green", "blue", "violet", "black", "white", "grey", "purple", "pink", "amber", "tortoise", "golden", "brown"};
 	public String[] forms = {"round", "square", "triangle", "rectangular", "star-shaped", "plus-shaped", "elliptic", "spherical", "cubic"};
 	
@@ -134,6 +135,7 @@ public class Keywords {
 			"It's alright.",
 			"It's fine, I can understand.",
 			"Oh, it's not a big deal!"};
+	public String[] musicGenres = {"classical", "rock", "jazz", "blues", "techno", "rap", "metal", "soul", "pop", "indie", "alternative", "punk", "funk", "country", "reggae"};
 	
 	/*
 	 * Conceptual:

@@ -2,9 +2,9 @@ package toolkit;
 
 import java.io.File;
 import java.io.IOException;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
-import org.apache.pdfbox.text.PDFTextStripperByArea;
+//import org.apache.pdfbox.pdmodel.PDDocument;
+//import org.apache.pdfbox.text.PDFTextStripper;
+//import org.apache.pdfbox.text.PDFTextStripperByArea;
 
 public class PDFTextExtractor {
 
@@ -15,6 +15,7 @@ public class PDFTextExtractor {
 
 	public static String readParaFromPDF(String pdfPath, int pageNo, String strStartIndentifier, String strEndIdentifier) {
 		String returnString = "";
+		/*
 		try {
 			PDDocument document = PDDocument.load(new File(pdfPath));
 			document.getClass();        
@@ -34,6 +35,7 @@ public class PDFTextExtractor {
 		} catch (Exception e) {
 			returnString = "No ParaGraph Found";
 		}
+		*/
 		return returnString;
 	}
 

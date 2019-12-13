@@ -61,6 +61,7 @@ public class StateVariables implements java.io.Serializable {
 	public String userFavouriteAnimal = "";
 	public ArrayList<String> userDislikes = new ArrayList<String>();
 	public boolean userFeelsSick = false;
+	public String userFavouriteMusicGenre = "";
 	
 	// INTERACTION WITH USER
 	public boolean askedUsersMood = false;
@@ -97,6 +98,11 @@ public class StateVariables implements java.io.Serializable {
 	public String theyReference = "";
 	public String thatReference = "";
 	public String thisReference = "";
+	public boolean userIsUncertain = false;
+	public boolean askedUserOccupation = false;
+	public boolean askedUserMajor = false;
+	public boolean askedIfUserHasChildren = false;
+	public boolean askedUsersAge = false;
 	
 	// WORLD DATA
 	public int actualYear = 0;

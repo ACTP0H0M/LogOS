@@ -380,9 +380,15 @@ public class TextMethods {
 		// handle adjective phrase
 		for (Parse child : vp.getChildren()) {
 			if (child.getType().equals("ADJP")) {
-				encapsule++;
-				branch += "how " + branchFromADJP(child);
-				break;
+				if (!(verb.equals("is") || verb.equals("are") || verb.equals("was") || verb.equals("were"))) {
+					encapsule++;
+					branch += "how " + branchFromADJP(child);
+					break;
+				} else {
+					encapsule++;
+					branch += branchFromADJP(child);
+					break;
+				}
 			}
 		}
 		// handle noun phrase

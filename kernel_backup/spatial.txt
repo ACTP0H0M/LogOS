@@ -2,3 +2,4 @@
 #C down opposite_to,1.0 up
 #C left opposite_to,1.0 right
 #C #B street prep,-1.0 on B# if:is:is,1.0 #B home prep,1.0 at B#
+#C #B surface prep,1.0 on B# if:is:is,0.9 #B surface prep,-1.0 under B#

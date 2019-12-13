@@ -1088,6 +1088,7 @@ public class ProblemSolver extends Object{
 				if (possibleSourceLogosList.isEmpty()) {
 					write("Logos [" + l.source.name + "] wasn't found in the database");
 					th.text = "I don't know anything about " + l.source.name + ".";
+					problem.solved = true;
 					break;
 				} else {
 					

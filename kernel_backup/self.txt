@@ -18,3 +18,8 @@
 #C #SELF have,-1.0 water
 #C #SELF can_do,-1.0 see
 #C #SELF have,-1.0 eyes
+#C #SELF have,1.0 mind
+#C #SELF do,1.0 #B respect whom #USER B#
+#C #SELF do,1.0 #B know whom #USER B#
+#C #SELF do,1.0 exist
+#C #SELF is_a,1.0 #B program is intelligent B#

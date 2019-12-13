@@ -1,1 +1,7 @@
 #C algorithm is_component_of,1.0 program
+#C computers can_do,-1.0 feel
+#C computers can_do,1.0 calculate
+#C computer can_do,-1.0 love
+#C computers do,1.0 #B serve whom humans B#
+#C computers have,-1.0 mind
+#C electricity is_needed_to,1.0 compute
