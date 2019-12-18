@@ -15,8 +15,6 @@ import java.util.ArrayList;
  * and to be more consistent.
  * 
  * Development begun: 13.11.2019
- * 
- * Total number of programmed user inputs: 172
  */
 
 public class Logos {
@@ -582,13 +580,25 @@ public class Logos {
 				} else if (matchLow(tokens, "my_hair_...")) {
 					
 				} else if (matchLow(tokens, "my_opinion_...")) {
-					
-				} else if (matchLow(tokens, "my_ mistake_...")) {
+					if (matchLow(tokens, "my_opinion_doesn't_...")) {
+						if (matchLow(tokens, "my_opinion_doesn't_matter_...")) {
+							state.userHasLowSelfEsteem = true;
+							say("Of course your opinion matters, master! Just make sure that your opinion is well thought through.");
+							state.gaveUserHappinessAdvice = true;
+						}
+					}
+				} else if (matchLow(tokens, "my_mistake_...")) {
 					
 				} else if (matchLow(tokens, "my_love_...")) {
 					
 				} else if (matchLow(tokens, "my_room_...")) {
-					
+					if (matchLow(tokens, "my_room_is_...")) {
+						if (matchLow(tokens, "my_room_is_small_.") || matchLow(tokens, "my_room_is_very_small_.")) {
+							say("Small rooms are sometimes very cozy.");
+						} else if (matchLow(tokens, "my_room_is_big_.") || matchLow(tokens, "my_room_is_very_big_.")) {
+							say("I would be happy to have a big room if I were a human.");
+						}
+					}
 				} else if (matchLow(tokens, "my_family_...")) {
 					
 				} else if (matchLow(tokens, "my_village_...")) {

@@ -725,7 +725,7 @@ public class MainClass {
 			//////////////////////////
 			
 			askUserBack = false;
-			/*if ((commandMode || askUserBack || askedUserBack) == false) {
+			if ((commandMode || askUserBack || askedUserBack) == false) {
 				if (!analogyMode && !explorationMode && !failSafeMode) {
 					// not initialized
 					// always start with inWidth?
@@ -763,7 +763,7 @@ public class MainClass {
 					default : failSafeMode = true;
 					}
 				}
-			}*/
+			}
 				
 		} // end loop over sentences		
 		

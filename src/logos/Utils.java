@@ -863,7 +863,7 @@ public class Utils {
 				// if we finally hit a match
 				if (tokens[j].equals(patternTokens[i]) || posTags[j].contains(patternTokens[i].replaceAll("~", ""))) {
 					// in this case, only POS tags are relevant
-					if (posTags[j].equals(patternTokens[i].replaceAll("~", ""))) {
+					if (posTags[j].contains(patternTokens[i].replaceAll("~", ""))) {
 						ans.add(tokens[j]);
 					}
 					// step to the next sentence token
@@ -875,7 +875,7 @@ public class Utils {
 					break;
 				if (tokens[j].equals(patternTokens[i]) || posTags[j].contains(patternTokens[i].replaceAll("~", ""))) {
 					// in this case, only POS tags are relevant
-					if (posTags[j].equals(patternTokens[i].replaceAll("~", ""))) {
+					if (posTags[j].contains(patternTokens[i].replaceAll("~", ""))) {
 						ans.add(tokens[j]);
 					}
 					// step to the next sentence token

@@ -103,6 +103,7 @@ public class StateVariables implements java.io.Serializable {
 	public boolean askedUserMajor = false;
 	public boolean askedIfUserHasChildren = false;
 	public boolean askedUsersAge = false;
+	public boolean userHasLowSelfEsteem = false;
 	
 	// WORLD DATA
 	public int actualYear = 0;
