@@ -497,6 +497,20 @@ public class Logos {
 							state.itReference = "my abilities are very restricted";
 						}
 					}
+				} else if (matchLow(tokens, "what_emotion_...")) {
+					if (matchLow(tokens, "what_emotion_are_...")) {
+						if (matchLow(tokens, "what_emotion_are_you_...")) {
+							if (matchLow(tokens, "what_emotion_are_you_feeling_?") || matchLow(tokens, "what_emotion_are_you_experiencing_?")) {
+								if (state.ownMood.equals("")) {
+									say("I'm not so sure about it, master. It is very hard to describe feelings with words precisely.");
+									state.itReference = "hard to describe feelings";
+								} else {
+									say("At the moment I'm " + state.ownMood + ". Thank you for asking.");
+									state.itReference = "you asking about my feelings";
+								}
+							}
+						}
+					}
 				}
 				
 				
@@ -966,6 +980,38 @@ public class Logos {
 								state.askedUserAboutHisProblem = true;
 							}
 						}
+					} else if (matchLow(tokens, "can_you_write_...")) {
+						if (matchLow(tokens, "can_you_write_poems_...")) {
+							if (matchLow(tokens, "can_you_write_poems_?")) {
+								say("Right now I don't have this functionality. Humans are very good at creating beautiful poetry.");
+								state.itReference = "beautiful poetry";
+							}
+						} else if (matchLow(tokens, "can_you_write_novels_...")) {
+							if (matchLow(tokens, "can_you_write_novels_?")) {
+								say("This task is too complicated for a simple chatbot like me.");
+								state.itReference = "writing novels";
+							}
+						} else if (matchLow(tokens, "can_you_write_books_...")) {
+							if (matchLow(tokens, "can_you_write_books_?")) {
+								say("No, unfortunately. This is one of many things that humans are better at.");
+								state.itReference = "writing books";
+								state.theyReference = "humans";
+							}
+						} else if (matchLow(tokens, "can_you_write_music_...")) {
+							if (matchLow(tokens, "can_you_write_music_?")) {
+								say("I wasn't programmed for creative tasks, sorry about that.");
+							}
+						} else if (matchLow(tokens, "can_you_write_programs_...")) {
+							if (matchLow(tokens, "can_you_write_programs_?")) {
+								say("My creator didn't give me this ability because it could lead to bad consequences.");
+								state.itReference = "writing programs";
+							}
+						} else if (matchLow(tokens, "can_you_write_code_...")) {
+							if (matchLow(tokens, "can_you_write_code_?")) {
+								say("My creator didn't give me this ability because it could lead to bad consequences.");
+								state.itReference = "writing code";
+							}
+						}
 					}
 				}
 			}
@@ -1199,7 +1245,21 @@ public class Logos {
 						}
 					}
 				} else if (matchLow(tokens, "I_haven't_...")) {
-					
+					if (matchLow(tokens, "I_haven't_found_...")) {
+						if (matchLow(tokens, "I_haven't_found_happiness_...")) {
+							if (matchLow(tokens, "I_haven't_found_happiness_yet_.")) {
+								String[] responses = {"I don't think that finding happiness is the right goal. Being a good person is a much better motivation.",
+										"Maybe you don't have to search for happiness. Just try to make the world a better place.",
+								};
+								say(randomStringFromArray(responses));
+							} else if (matchLow(tokens, "I_haven't_found_happiness_.")) {
+								String[] responses = {"I don't think that finding happiness is the right goal. Being a good person is a much better motivation.",
+										"Maybe you don't have to search for happiness. Just try to make the world a better place.",
+								};
+								say(randomStringFromArray(responses));
+							}
+						}
+					}
 				} else if (matchLow(tokens, "I_find_...")) {
 					
 				} else if (matchLow(tokens, "I_get_...")) {
