@@ -693,7 +693,7 @@ public class MainClass {
 			//EXPLORATION MODE//
 			////////////////////
 			
-			
+			/*
 			if (explorationMode && !listenMode) {
 				// Find problems arising after user's input
 				ArrayList<Problem> nextProblems = prfinder.findProblems(database, utils);
@@ -763,7 +763,7 @@ public class MainClass {
 					default : failSafeMode = true;
 					}
 				}
-			}
+			}*/
 				
 		} // end loop over sentences		
 		

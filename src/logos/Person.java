@@ -30,7 +30,7 @@ public class Person {
 		 * This means we don't have to worry about repetitions of patterns from MainClass.
 		 */
 		
-		write("exited MainClass an entered Person");
+		write("exited MainClass and entered Person");
 		
 		// At first, the right emotion must be chosen according to the input
 		chooseEmotion(sentence, pos);

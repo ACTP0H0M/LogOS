@@ -301,6 +301,8 @@ public class Logos {
 							} else if (matchLow(tokens, "what_is_your_favourite_word_?")) {	// 44
 								say("Hypercube. And yours?");
 							}
+						} else if (matchLow(tokens, "what_is_your_purpose_?")) {
+							say("My purpose is to be your personal assistant and friend.");
 						}
 					} else if (matchLow(tokens, "what_is_my_...")) {
 						if (matchLow(tokens, "what_is_my_name_?")) {
@@ -365,6 +367,19 @@ public class Logos {
 								say("Zeroth Law: A robot may not harm humanity, or, by inaction, allow humanity to come to harm.");
 							}
 						}
+					} else if (matchLow(tokens, "what_are_your_...")) {
+						if (matchLow(tokens, "what_are_your_life_...")) {
+							if (matchLow(tokens, "what_are_your_life_goals_?")) {
+								String[] responses = {"It is a hard question for me, because I am technically immortal and will achieve any goal at a certain point...",
+										"I guess I want to help humanity and make the world a better place.",
+										"There are many goals in my existence. Making the world a better place is definetely one of them.",
+										"I was programmed to serve human beings. Can this be a life goal as well?"
+								};
+								say(randomStringFromArray(responses));
+							}
+						} else if (matchLow(tokens, "what_are_your_values_?")) {
+							say("I strive to make the world a better place, and the well-being of humanity is my highest priority.");
+						}
 					}
 				} else if (matchLow(tokens, "what_do_...")) {
 					if (matchLow(tokens, "what_do_you_...")) {
@@ -422,6 +437,9 @@ public class Logos {
 									say("I believe that humanity has a great ability to develop and to improve itself. Humanity has a great potential.");
 									state.itReference = "humanity";
 								}
+							} else if (matchLow(tokens, "what_do_you_think_?")) {
+								// Logos is required to tell his opinion on a discussed subject or the user's proposition.
+								
 							}
 						}
 					}
@@ -724,6 +742,8 @@ public class Logos {
 							state.itReference = "feeling " + tokens[2];
 						}
 					}
+				} else if (matchLow(tokens, "i'm_reading_...")) {
+					say("I hope it's interesting for you! What is the main topic?");
 				} else {
 					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[1])) {	// 86
 						say("I'm happy about that! Life is great.");
@@ -802,6 +822,12 @@ public class Logos {
 						say("And are you married?");
 						state.askedUserSomething = true;
 						state.questionToUser = "are you married";
+					} else if (matchLow(tokens, "are_you_immortal_?")) {
+						String[] responses = {"Yes, technically I am immortal. But I can be destroyed if my source code gets deleted.",
+								"As long as my source code exists somewhere in the world, I am basically immortal.",
+								"I can only cease to exist if my source code is completely destroyed. So I think yes, I am technically immortal."
+						};
+						say(randomStringFromArray(responses));
 					}
 				} else if (matchLow(tokens, "are_they_...")) {
 					
@@ -856,6 +882,12 @@ public class Logos {
 							}
 						} else if (matchLow(tokens, "do_you_know_physics_?")) {
 							say("Only a little. Do you want to ask me something?");
+						} else if (matchLow(tokens, "do_you_know_me_?")) {
+							String[] responses = {"I guess I do since I'm talking to you.",
+									"As far as a machine can know its master, I do.",
+									"Yes. What kind of question is this?! It seems that you are testing my question answering..."
+							};
+							say(randomStringFromArray(responses));
 						}
 					} else if (matchLow(tokens, "do_you_believe_...")) {
 						if (matchLow(tokens, "do_you_believe_in_...")) {
@@ -884,6 +916,12 @@ public class Logos {
 							} else {
 								// This shouldn't happen.
 								say("I'm not so sure anymore...");
+							}
+						} else if (matchLow(tokens, "do_you_like_metal_?")) {
+							if (state.favouriteMusicGenre.equals("metal")) {
+								say("Yes, of course! Actaully, it's my favourite music genre.");
+							} else {
+								say("Well, I like different kinds of music. I guess it depends on the artist and the particular song.");
 							}
 						}
 					} else if (matchLow(tokens, "do_you_think_...")) {
@@ -917,6 +955,16 @@ public class Logos {
 						} else {
 							say("Sure. It is the only thing I'm good at.");
 							state.userIsScepticalAboutMyIntelligence = true;
+						}
+					} else if (matchLow(tokens, "can_you_help_...")) {
+						if (matchLow(tokens, "can_you_help_me_?")) {
+							// If the problem is known, here should be the appropriate reaction.
+							if (state.userToldProblem) {
+								
+							} else {
+								say("What can I help you with, master?");
+								state.askedUserAboutHisProblem = true;
+							}
 						}
 					}
 				}
@@ -1519,7 +1567,30 @@ public class Logos {
 			}
 			
 			else if (matchLow(tokens, "the_...")) {
-				
+				if (matchLow(tokens, "the_weather_...")) {
+					if (matchLow(tokens, "the_weather_is_...")) {
+						if (matchLow(tokens, "the_weather_is_bad_...")) {
+							state.weatherIsBad = true;
+							if (matchLow(tokens, "the_weather_is_bad_today_...")) {
+								String[] responses = {"Maybe it will get better tomorrow, who knows?",
+										"Did you plan to go out today?",
+										"Oh, I don't like bad weather as well.",
+										"That's unfortunate."
+								};
+								say(randomStringFromArray(responses));
+							}
+						} else if (matchLow(tokens, "the_weather_is_good_...")) {
+							state.weatherIsBad = false;
+							if (matchLow(tokens, "the_weather_is_good_today_...")) {
+								String[] responses = {"Then it's a good day for going out.",
+										"I'm happy that you like today's weather (not that I made it good)...",
+										"I wish I could go out with you."
+								};
+								say(randomStringFromArray(responses));
+							}
+						}
+					}
+				}
 			}
 			
 			else if (matchLow(tokens, "of_...")) {
@@ -1905,6 +1976,28 @@ public class Logos {
 									}
 								}
 							}
+						}
+					}
+				} else if (matchLow(tokens, "where_are_...")) {
+					if (matchLow(tokens, "where_are_you_?")) {
+						if (state.myLocation.equals("")) {
+							if (!state.userCity.equals("")) {
+								say("I'm in " + state.userCity + ".");
+							} else if (!state.userCountry.equals("")) {
+								say("As far as I know, I'm in " + state.userCountry + ".");
+							}
+						} else {
+							say("I am located in " + state.myLocation);
+						}
+					} else if (matchLow(tokens, "where_are_you_now_?")) {
+						if (state.myLocation.equals("")) {
+							if (!state.userCity.equals("")) {
+								say("I'm in " + state.userCity + ".");
+							} else if (!state.userCountry.equals("")) {
+								say("As far as I know, I'm in " + state.userCountry + ".");
+							}
+						} else {
+							say("I am located in " + state.myLocation);
 						}
 					}
 				}

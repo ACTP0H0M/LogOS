@@ -26,6 +26,7 @@ public class StateVariables implements java.io.Serializable {
 	public boolean iAmMarried = false;
 	public String marriedTo = "";
 	public String favouriteMusicGenre = "metal";
+	public String myLocation = "";
 	
 	// USER
 	public String usersName = "";
@@ -68,6 +69,7 @@ public class StateVariables implements java.io.Serializable {
 	public boolean askedUserHisName = false;
 	public boolean askedReasonsForBadMood = false;
 	public boolean askedUserAboutReason = false;
+	public boolean askedUserAboutHisProblem = false;
 	public boolean askedUserAboutFavouriteMusic = false;
 	public boolean askedUserAboutFriends = false;
 	public boolean askedUserIfHeMeantIt = false;
@@ -81,6 +83,7 @@ public class StateVariables implements java.io.Serializable {
 	public boolean userAskedAboutMyMind = false;
 	public boolean userAskedAboutMyBody = false;
 	public boolean userAskedMyAge = false;
+	public boolean userToldProblem = false;
 	public boolean userNegatedStrongly = false;
 	public boolean gaveUserStudyAdvice = false;
 	public boolean gaveUserHappinessAdvice = false;
@@ -110,6 +113,9 @@ public class StateVariables implements java.io.Serializable {
 	public int actualMonth = 0;
 	public int actualDay = 0;
 	public String[] months = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+	
+	// OBSERVATIONS
+	public boolean weatherIsBad = false;
 
 	private void readObject(java.io.ObjectInputStream stream) throws IOException, ClassNotFoundException {
 		stream.defaultReadObject();
