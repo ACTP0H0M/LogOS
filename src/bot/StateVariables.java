@@ -64,6 +64,7 @@ public class StateVariables implements java.io.Serializable {
 	public ArrayList<String> userDislikes = new ArrayList<String>();
 	public boolean userFeelsSick = false;
 	public String userFavouriteMusicGenre = "";
+	public String userLocation = "";
 	
 	// INTERACTION WITH USER
 	public boolean askedUsersMood = false;

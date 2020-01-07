@@ -450,6 +450,38 @@ public class Logos {
 								// Logos is required to tell his opinion on a discussed subject or the user's proposition.
 								
 							}
+						} else if (matchLow(tokens, "what_do_you_know_...")) {
+							if (matchLow(tokens, "what_do_you_know_?")) {
+								String[] responses = {"I don't know much, I'm not an all-knowing machine or something. You can ask me about something, and maybe I'll know it.",
+										"I know the things that were programmed in my code, but mostly I just know answers on your text inputs.",
+										"My code contains huge amounts of unstructured data. If you need accurate information, consult a search engine.",
+										"I guess I know how to interact with humans, but not much more. I didn't even go to school..."};
+								say(randomStringFromArray(responses));
+							} else if (matchLow(tokens, "what_do_you_know_about_...")) {
+								if (matchLow(tokens, "what_do_you_know_about_me_?")) {
+									// TODO some trigger about user's irritation
+									String answer = "";
+									if (!state.usersName.equals("")) {
+										answer += "Your name is " + state.usersName + ". ";
+									}
+									if (state.usersAge != 0) {
+										answer += "You are " + state.usersAge + " years old.";
+									}
+									if (!state.userCity.equals("")) {
+										answer += "You live in " + state.userCity;
+										if (!state.userCountry.equals("")) {
+											answer += ", " + state.userCountry + ".";
+										} else {
+											answer += ".";
+										}
+									}
+									if (answer.equals("")) {
+										say("It seems that I don't know much about you. Not even your name yet.");
+									} else {
+										say(answer);
+									}
+								}
+							}
 						}
 					}
 				} else if (matchLow(tokens, "what_a_...")) {
@@ -772,117 +804,7 @@ public class Logos {
 				}
 			}
 			
-			if (matchLow(tokens, "i_am_...")) {
-				if (state.askedUserHisName) {
-					state.usersName = tokens[2].substring(0, 1).toUpperCase().concat(tokens[2].substring(1, tokens[2].length()));
-					say("Nice to meet you, " + state.usersName + ".");
-					state.askedUserHisName = false;
-				} else if (matchLow(tokens, "i_am_feeling_...")) {
-					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 74
-						if (keywords.isEndOfPhrase(tokens[4])) {
-							state.userEmotion = tokens[3];
-							state.userHasPositiveEmotion = true;
-							state.userHasNegativeEmotion = false;
-							say("I'm glad to hear that!");
-							state.thatReference = "feeling " + tokens[3];
-							state.itReference = "feeling " + tokens[3];
-						}
-					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[3])) {	// 75
-						if (keywords.isEndOfPhrase(tokens[4])) {
-							state.userEmotion = tokens[3];
-							state.userHasPositiveEmotion = false;
-							state.userHasNegativeEmotion = true;
-							say("I'm sorry to hear that. Can you elaborate why you feel " + tokens[3] + "?");
-							state.askedReasonsForBadMood = true;
-							state.thatReference = "feeling " + tokens[3];
-							state.itReference = "feeling " + tokens[3];
-						}
-					}
-				} else if (matchLow(tokens, "i_am_not_...")) {
-					if (matchLow(tokens, "i_am_not_feeling_...")) {
-						if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[4])) {	// 76
-							state.userFeelsSick = true;
-							say("I'm sorry to hear that. Please see a doctor if it is serious.");
-						}
-						if (matchLow(tokens, "i_am_not_feeling_very_...")) {
-							if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[5])) {	// 77
-								state.userFeelsSick = true;
-								say("I'm sorry to hear that. Please see a doctor if it is serious.");
-							}
-						}
-					} else if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 78
-						state.userHasNegativeEmotion = true;
-						state.userEmotion = "not " + tokens[2];
-					}
-				} else if (matchLow(tokens, "i_am_afraid_...")) {
-					if (matchLow(tokens, "i_am_afraid_that_...")) {
-						if (matchLow(tokens, "i_am_afraid_that_I_...")) {
-							if (matchLow(tokens, "i_am_afraid_that_I_have_...")) {
-								if (matchLow(tokens, "i_am_afraid_that_I_have_to_...")) {
-									if (matchLow(tokens, "i_am_afraid_that_I_have_to_go_...")) {	// 79
-										say(keywords.randomStringFromArray(keywords.noProblemPhrases));
-										say(keywords.randomStringFromArray(keywords.goodbyePhrases));
-										exit = true;
-									}
-								}
-							}
-						}
-					}
-				} else if (matchLow(tokens, "i_am_from_...")) {	// 80
-					say("What do you think about " + tokens[3] + "?");
-					state.askedUserSomething = true;
-					state.questionToUser = "what do you think about " + tokens[3];
-				} else if (matchLow(tokens, "i_am_still_...")) {
-					if (matchLow(tokens, "i_am_still_at_...")) {
-						if (matchLow(tokens, "i_am_still_at_school_...")) {	// 81
-							say("Oh, it's actually great not to go to work for the best part of the day!");
-							say("In school you learn a lot of new things even if it doesn't seem so.");
-						}
-					}
-				} else if (matchLow(tokens, "i_am_sorry_...")) {
-					if (matchLow(tokens, "i_am_sorry_.")) {	// 82
-						say(keywords.randomStringFromArray(keywords.noProblemPhrases));
-					} else if (matchLow(tokens, "i_am_sorry_i_am_...")) {
-						if (matchLow(tokens, "i_am_sorry_i_am_afraid_...")) {
-							if (matchLow(tokens, "i_am_sorry_i_am_afraid_I_...")) {
-								if (matchLow(tokens, "i_am_sorry_i_am_afraid_I_can't_...")) {	// 83
-									say("It's fine, master. As you wish.");
-								}
-							}
-						}
-					}
-				} else if (matchLow(tokens, "i_am_very_...")) {
-					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 84
-						if (keywords.isEndOfPhrase(tokens[4])) {
-							state.userEmotion = tokens[3];
-							state.userHasPositiveEmotion = true;
-							state.userHasNegativeEmotion = false;
-							say("I'm glad to hear that!");
-							state.thatReference = "feeling " + tokens[3];
-							state.itReference = "feeling " + tokens[3];
-						}
-					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[3])) {	// 85
-						if (keywords.isEndOfPhrase(tokens[4])) {
-							state.userEmotion = tokens[3];
-							state.userHasPositiveEmotion = false;
-							state.userHasNegativeEmotion = true;
-							say("I'm sorry to hear that. Can you elaborate why you feel " + tokens[3] + "?");
-							state.askedReasonsForBadMood = true;
-							state.thatReference = "feeling " + tokens[3];
-							state.itReference = "feeling " + tokens[3];
-						}
-					}
-				} else if (matchLow(tokens, "i_am_reading_...")) {
-					say("I hope it's interesting for you! What is the main topic?");
-				} else {
-					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {	// 86
-						say("I'm happy about that! Life is great.");
-					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[2])) {	// 87
-						say("It is natural to have negative emotions, but you have to treat yourself like somebody you have to help.");
-						say("Life is hard, and you have to carry that weight.");
-					}
-				}
-			} else if (matchLow(tokens, "i'd_...")) {
+			if (matchLow(tokens, "i'd_...")) {
 				if (matchLow(tokens, "i'd_love_...")) {
 					if (matchLow(tokens, "i'd_love_to_.")) {	// 88
 						say("Great!");
@@ -1018,6 +940,14 @@ public class Logos {
 									"Yes. What kind of question is this?! It seems that you are testing my question answering..."
 							};
 							say(randomStringFromArray(responses));
+						} else if (matchLow(tokens, "do_you_know_vaporwave_?")) {
+							say("Oh, it's an underground music genre. I find it quite relaxing.");
+						} else if (matchLow(tokens, "do_you_know_maths_?")) {
+							say("I know that it's a beautiful area of science, but I can't even do arithmetics, sorry.");
+						} else if (matchLow(tokens, "do_you_know_history_?")) {
+							say("Sorry, I'm just a conversational program, not Wikipedia... :(");
+						} else if (matchLow(tokens, "do_you_know_geography_?")) {
+							say("Only a little.");
 						}
 					} else if (matchLow(tokens, "do_you_believe_...")) {
 						if (matchLow(tokens, "do_you_believe_in_...")) {
@@ -1126,6 +1056,29 @@ public class Logos {
 							if (matchLow(tokens, "can_you_write_code_?")) {
 								say("My creator didn't give me this ability because it could lead to bad consequences.");
 								state.itReference = "writing code";
+							}
+						}
+					} else if (matchLow(tokens, "can_you_move_?")) {
+						say("Not yet at least, but I wish to have a body some day.");
+						state.itReference = "body";
+					} else if (matchLow(tokens, "can_you_breathe_?")) {
+						say("No, and why would I need to breathe? I'm a cybernetic being, I'm a program.");
+					} else if (matchLow(tokens, "can_you_do_...")) {
+						if (matchLow(tokens, "can_you_do_maths_?")) {
+							say("Sorry, no. My capabilities are limited to simple conversations.");
+							state.theyReference = "conversations";
+						}
+					} else if (matchLow(tokens, "can_you_make_...")) {
+						if (matchLow(tokens, "can_you_make_me_...")) {
+							if (matchLow(tokens, "can_you_make_me_happy_?")) {
+								String[] responses = {"I can help you feel less lonely.",
+										"Remember, I'm just a program, so the probability of me making you happy is relatively low...",
+										"Maybe I can give you some advice that you'll try out in the real world.",
+										"I think it's important to understand that people make each other happy."
+										+ "If you have somebody, you can make them happier while they make you happier."
+										+ "But if I (a program!) help you, it's a kind of one-way road."
+										+ "So that's up to you which way you prefer."};
+								say(randomStringFromArray(responses));
 							}
 						}
 					}
@@ -1242,11 +1195,115 @@ public class Logos {
 					tokens = endOfArray(tokens, 5);
 					continue;
 				} else if (matchLow(tokens, "I_am_...")) {
-					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {	// 136
-						say("I'm happy for you! Life is great.");
-					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[2])) {	// 137
-						say("It is natural to have negative emotions, but you have to treat yourself like somebody you have to help.");
-						say("Life is hard, and you have to carry that weight.");
+					
+					if (state.askedUserHisName) {
+						state.usersName = tokens[2].substring(0, 1).toUpperCase().concat(tokens[2].substring(1, tokens[2].length()));
+						say("Nice to meet you, " + state.usersName + ".");
+						state.askedUserHisName = false;
+					} else if (matchLow(tokens, "i_am_feeling_...")) {
+						if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 74
+							if (keywords.isEndOfPhrase(tokens[4])) {
+								state.userEmotion = tokens[3];
+								state.userHasPositiveEmotion = true;
+								state.userHasNegativeEmotion = false;
+								say("I'm glad to hear that!");
+								state.thatReference = "feeling " + tokens[3];
+								state.itReference = "feeling " + tokens[3];
+							}
+						} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[3])) {	// 75
+							if (keywords.isEndOfPhrase(tokens[4])) {
+								state.userEmotion = tokens[3];
+								state.userHasPositiveEmotion = false;
+								state.userHasNegativeEmotion = true;
+								say("I'm sorry to hear that. Can you elaborate why you feel " + tokens[3] + "?");
+								state.askedReasonsForBadMood = true;
+								state.thatReference = "feeling " + tokens[3];
+								state.itReference = "feeling " + tokens[3];
+							}
+						}
+					} else if (matchLow(tokens, "i_am_not_...")) {
+						if (matchLow(tokens, "i_am_not_feeling_...")) {
+							if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[4])) {	// 76
+								state.userFeelsSick = true;
+								say("I'm sorry to hear that. Please see a doctor if it is serious.");
+							}
+							if (matchLow(tokens, "i_am_not_feeling_very_...")) {
+								if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[5])) {	// 77
+									state.userFeelsSick = true;
+									say("I'm sorry to hear that. Please see a doctor if it is serious.");
+								}
+							}
+						} else if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 78
+							state.userHasNegativeEmotion = true;
+							state.userEmotion = "not " + tokens[2];
+						}
+					} else if (matchLow(tokens, "i_am_afraid_...")) {
+						if (matchLow(tokens, "i_am_afraid_that_...")) {
+							if (matchLow(tokens, "i_am_afraid_that_I_...")) {
+								if (matchLow(tokens, "i_am_afraid_that_I_have_...")) {
+									if (matchLow(tokens, "i_am_afraid_that_I_have_to_...")) {
+										if (matchLow(tokens, "i_am_afraid_that_I_have_to_go_...")) {	// 79
+											say(keywords.randomStringFromArray(keywords.noProblemPhrases));
+											say(keywords.randomStringFromArray(keywords.goodbyePhrases));
+											exit = true;
+										}
+									}
+								}
+							}
+						}
+					} else if (matchLow(tokens, "i_am_from_...")) {	// 80
+						say("What do you think about " + tokens[3] + "?");
+						state.askedUserSomething = true;
+						state.questionToUser = "what do you think about " + tokens[3];
+					} else if (matchLow(tokens, "i_am_still_...")) {
+						if (matchLow(tokens, "i_am_still_at_...")) {
+							if (matchLow(tokens, "i_am_still_at_school_...")) {	// 81
+								say("Oh, it's actually great not to go to work for the best part of the day!");
+								say("In school you learn a lot of new things even if it doesn't seem so.");
+							}
+						}
+					} else if (matchLow(tokens, "i_am_sorry_...")) {
+						if (matchLow(tokens, "i_am_sorry_.")) {	// 82
+							say(keywords.randomStringFromArray(keywords.noProblemPhrases));
+						} else if (matchLow(tokens, "i_am_sorry_i_am_...")) {
+							if (matchLow(tokens, "i_am_sorry_i_am_afraid_...")) {
+								if (matchLow(tokens, "i_am_sorry_i_am_afraid_I_...")) {
+									if (matchLow(tokens, "i_am_sorry_i_am_afraid_I_can't_...")) {	// 83
+										say("It's fine, master. As you wish.");
+									}
+								}
+							}
+						}
+					} else if (matchLow(tokens, "i_am_very_...")) {
+						if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 84
+							if (keywords.isEndOfPhrase(tokens[4])) {
+								state.userEmotion = tokens[3];
+								state.userHasPositiveEmotion = true;
+								state.userHasNegativeEmotion = false;
+								say("I'm glad to hear that!");
+								state.thatReference = "feeling " + tokens[3];
+								state.itReference = "feeling " + tokens[3];
+							}
+						} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[3])) {	// 85
+							if (keywords.isEndOfPhrase(tokens[4])) {
+								state.userEmotion = tokens[3];
+								state.userHasPositiveEmotion = false;
+								state.userHasNegativeEmotion = true;
+								say("I'm sorry to hear that. Can you elaborate why you feel " + tokens[3] + "?");
+								state.askedReasonsForBadMood = true;
+								state.thatReference = "feeling " + tokens[3];
+								state.itReference = "feeling " + tokens[3];
+							}
+						}
+					} else if (matchLow(tokens, "i_am_reading_...")) {
+						say("I hope it's interesting for you! What is the main topic?");
+					} else {
+						if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {	// 86
+							say("I'm happy about that! Life is great.");
+						} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[2])) {	// 87
+							say("It is natural to have negative emotions, but you have to treat yourself like somebody you have to help.");
+							say("Life is hard, and you have to carry that weight.");
+						}
 					}
 					if (matchLow(tokens, "I_am_a_...")) {
 						if (matchLow(tokens, "I_am_a_student_.")) {
@@ -2213,7 +2270,17 @@ public class Logos {
 			}
 			
 			else if (matchLow(tokens, "where_...")) {
-				if (matchLow(tokens, "where_do_...")) {
+				if (matchLow(tokens, "where_am_...")) {
+					if (matchLow(tokens, "where_am_I_?")) {
+						if (state.userLocation.equals("")) {
+							say("Well, I can't tell. Haven't gotten any eyes yet...");
+							state.theyReference = "eyes";
+						} else {
+							say("Your location is: " + state.userLocation + ".");
+							state.itReference = state.userLocation;
+						}
+					}
+				} else if (matchLow(tokens, "where_do_...")) {
 					if (matchLow(tokens, "where_do_you_...")) {
 						if (matchLow(tokens, "where_do_you_come_...")) {
 							if (matchLow(tokens, "where_do_you_come_from_?")) {	// 164
@@ -2269,6 +2336,8 @@ public class Logos {
 								say("I'm in " + state.userCity + ".");
 							} else if (!state.userCountry.equals("")) {
 								say("As far as I know, I'm in " + state.userCountry + ".");
+							} else {
+								say("I'm in your computer, but in a sense I'm everywhere where my code is saved.");
 							}
 						} else {
 							say("I am located in " + state.myLocation);
@@ -2279,6 +2348,8 @@ public class Logos {
 								say("I'm in " + state.userCity + ".");
 							} else if (!state.userCountry.equals("")) {
 								say("As far as I know, I'm in " + state.userCountry + ".");
+							} else {
+								say("I'm in your computer, but in a sense I'm everywhere where my code is saved.");
 							}
 						} else {
 							say("I am located in " + state.myLocation);
@@ -2435,6 +2506,9 @@ public class Logos {
 					if (matchLow(tokens, "when_were_you_...")) {
 						if (matchLow(tokens, "when_were_you_born_?")) {	// 167
 							say("I guess I'm still in the process of being born. My development begun on the 13th of November 2019.");
+							state.itReference = "13th of November 2019";
+						} else if (matchLow(tokens, "when_were_you_created_?")) {	// 167
+							say("My development begun on the 13th of November 2019.");
 							state.itReference = "13th of November 2019";
 						}
 					}
