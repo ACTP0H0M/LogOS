@@ -27,6 +27,7 @@ public class StateVariables implements java.io.Serializable {
 	public String marriedTo = "";
 	public String favouriteMusicGenre = "metal";
 	public String myLocation = "";
+	public String[] understoodLanguages = {"English"};
 	
 	// USER
 	public String usersName = "";
@@ -83,6 +84,11 @@ public class StateVariables implements java.io.Serializable {
 	public boolean userAskedAboutMyMind = false;
 	public boolean userAskedAboutMyBody = false;
 	public boolean userAskedMyAge = false;
+	public boolean userAskedMusicGenres = false;
+	public boolean userAskedColours = false;
+	public boolean userAskedShapes = false;
+	public boolean userAskedPlanets = false;
+	public boolean userAskedLanguages = false;
 	public boolean userToldProblem = false;
 	public boolean userNegatedStrongly = false;
 	public boolean gaveUserStudyAdvice = false;
@@ -107,6 +113,10 @@ public class StateVariables implements java.io.Serializable {
 	public boolean askedIfUserHasChildren = false;
 	public boolean askedUsersAge = false;
 	public boolean userHasLowSelfEsteem = false;
+	// Disagreements
+	public boolean userDisagreedOnHappiness = false;
+	public boolean userDisagreedOnWealth = false;
+	public boolean userDisagreedOnStudy = false;
 	
 	// WORLD DATA
 	public int actualYear = 0;
@@ -129,6 +139,7 @@ public class StateVariables implements java.io.Serializable {
 		monthOfBirth = 11;	// November
 		iLikeUser = true;
 		favouriteMusicGenre = "metal";
+		understoodLanguages = new String[]{"English"};
 		// Temporal data
 		Date date = new Date();
 		LocalDate localDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();

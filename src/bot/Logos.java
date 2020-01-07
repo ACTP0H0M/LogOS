@@ -20,6 +20,8 @@ import java.util.ArrayList;
 public class Logos {
 	
 	static ArrayList<String> dialogue = new ArrayList<String>();
+	static boolean answered = false;
+	static Analysis analysis = new Analysis();
 	
 	public static void main(String[] args) {
 		
@@ -78,6 +80,13 @@ public class Logos {
 			System.out.print(">>>USER: ");
 			String userInput = input.nextLine();
 			dialogue.add(">>>USER: " + userInput);
+			
+			// Prepare user input for parsing
+			userInput = userInput.replaceAll("'m", " am");
+			userInput = userInput.replaceAll("'re", " are");
+			userInput = userInput.replaceAll("'ve", " have");
+			userInput = userInput.replaceAll("'s", " is");
+
 			String[] tokens = tokensFromText(userInput);
 			
 			// Forced exit
@@ -511,8 +520,115 @@ public class Logos {
 							}
 						}
 					}
+				} else if (matchLow(tokens, "what_music_...")) {
+					if (matchLow(tokens, "what_music_genres_...")) {
+						if (matchLow(tokens, "what_music_genres_do_...")) {
+							if (matchLow(tokens, "what_music_genres_do_you_...")) {
+								if (matchLow(tokens, "what_music_genres_do_you_know_?")) {
+									String answer = "The following genres are encoded in my memory:";
+									for (int i = 0; i < keywords.musicGenres.length; i++) {
+										if (i != keywords.musicGenres.length - 1)
+											answer += " " + keywords.musicGenres[i] + ",";
+										else
+											answer += " " + keywords.musicGenres[i];
+									}
+									answer += ".";
+									say(answer);
+									state.userAskedMusicGenres = true;
+								}
+							}
+						}
+					}
+				} else if (matchLow(tokens, "what_colors_...")) {
+					if (matchLow(tokens, "what_colors_do_...")) {
+						if (matchLow(tokens, "what_colors_do_you_...")) {
+							if (matchLow(tokens, "what_colors_do_you_know_?")) {
+								String answer = "I know the following colors:";
+								for (int i = 0; i < keywords.colours.length; i++) {
+									if (i != keywords.colours.length - 1)
+										answer += " " + keywords.colours[i] + ",";
+									else
+										answer += " " + keywords.colours[i];
+								}
+								answer += ".";
+								say(answer);
+								state.userAskedColours = true;
+							}
+						}
+					}
+				} else if (matchLow(tokens, "what_shapes_...")) {
+					if (matchLow(tokens, "what_shapes_do_...")) {
+						if (matchLow(tokens, "what_shapes_do_you_...")) {
+							if (matchLow(tokens, "what_shapes_do_you_know_?")) {
+								String answer = "I know the following shapes:";
+								for (int i = 0; i < keywords.forms.length; i++) {
+									if (i != keywords.forms.length - 1)
+										answer += " " + keywords.forms[i] + ",";
+									else
+										answer += " " + keywords.forms[i];
+								}
+								answer += ".";
+								say(answer);
+								state.userAskedShapes = true;
+							}
+						}
+					}
+				} else if (matchLow(tokens, "what_languages_...")) {
+					if (matchLow(tokens, "what_languages_do_...")) {
+						if (matchLow(tokens, "what_languages_do_you_...")) {
+							if (matchLow(tokens, "what_languages_do_you_know_?") || matchLow(tokens, "what_languages_do_you_understand_?")) {
+								String answer = "I know";
+								for (int i = 0; i < state.understoodLanguages.length; i++) {
+									if (i != state.understoodLanguages.length - 1)
+										answer += " " + state.understoodLanguages[i] + ",";
+									else
+										answer += " " + state.understoodLanguages[i];
+								}
+								answer += ".";
+								say(answer);
+								state.userAskedLanguages = true;
+							}
+						}
+					}
+				} else if (matchLow(tokens, "what_planets_...")) {
+					if (matchLow(tokens, "what_planets_do_...")) {
+						if (matchLow(tokens, "what_planets_do_you_...")) {
+							if (matchLow(tokens, "what_planets_do_you_know_?")) {
+								String answer = "The planets of our solar system are:";
+								for (int i = 0; i < keywords.planets.length; i++) {
+									if (i != keywords.planets.length - 1)
+										answer += " " + keywords.planets[i] + ",";
+									else
+										answer += " " + keywords.planets[i];
+								}
+								answer += ".";
+								say(answer);
+								state.userAskedPlanets = true;
+							}
+						}
+					} else if (matchLow(tokens, "what_planets_are_...")) {
+						if (matchLow(tokens, "what_planets_are_there_...")) {
+							if (matchLow(tokens, "what_planets_are_there_in_...")) {
+								if (matchLow(tokens, "what_planets_are_there_in_the_...")) {
+									if (matchLow(tokens, "what_planets_are_there_in_the_solar_...")) {
+										if (matchLow(tokens, "what_planets_are_there_in_the_solar_system_?")) {
+											String answer = "The planets of our solar system are:";
+											for (int i = 0; i < keywords.planets.length; i++) {
+												if (i != keywords.planets.length - 1)
+													answer += " " + keywords.planets[i] + ",";
+												else
+													answer += " " + keywords.planets[i];
+											}
+											answer += ".";
+											say(answer);
+											state.userAskedPlanets = true;
+										}
+									}
+								}
+							}
+						}
+					}
 				}
-				
 				
 				if (matchLow(tokens, "what's_my_...")) {
 					if (matchLow(tokens, "what's_my_name_?")) {
@@ -656,54 +772,54 @@ public class Logos {
 				}
 			}
 			
-			if (matchLow(tokens, "i'm_...")) {
+			if (matchLow(tokens, "i_am_...")) {
 				if (state.askedUserHisName) {
-					state.usersName = tokens[1].substring(0, 1).toUpperCase().concat(tokens[1].substring(1, tokens[1].length()));
+					state.usersName = tokens[2].substring(0, 1).toUpperCase().concat(tokens[2].substring(1, tokens[2].length()));
 					say("Nice to meet you, " + state.usersName + ".");
 					state.askedUserHisName = false;
-				} else if (matchLow(tokens, "i'm_feeling_...")) {
-					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {	// 74
-						if (keywords.isEndOfPhrase(tokens[3])) {
-							state.userEmotion = tokens[2];
+				} else if (matchLow(tokens, "i_am_feeling_...")) {
+					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 74
+						if (keywords.isEndOfPhrase(tokens[4])) {
+							state.userEmotion = tokens[3];
 							state.userHasPositiveEmotion = true;
 							state.userHasNegativeEmotion = false;
 							say("I'm glad to hear that!");
-							state.thatReference = "feeling " + tokens[2];
-							state.itReference = "feeling " + tokens[2];
+							state.thatReference = "feeling " + tokens[3];
+							state.itReference = "feeling " + tokens[3];
 						}
-					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[2])) {	// 75
-						if (keywords.isEndOfPhrase(tokens[3])) {
-							state.userEmotion = tokens[2];
+					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[3])) {	// 75
+						if (keywords.isEndOfPhrase(tokens[4])) {
+							state.userEmotion = tokens[3];
 							state.userHasPositiveEmotion = false;
 							state.userHasNegativeEmotion = true;
-							say("I'm sorry to hear that. Can you elaborate why you feel " + tokens[2] + "?");
+							say("I'm sorry to hear that. Can you elaborate why you feel " + tokens[3] + "?");
 							state.askedReasonsForBadMood = true;
-							state.thatReference = "feeling " + tokens[2];
-							state.itReference = "feeling " + tokens[2];
+							state.thatReference = "feeling " + tokens[3];
+							state.itReference = "feeling " + tokens[3];
 						}
 					}
-				} else if (matchLow(tokens, "i'm_not_...")) {
-					if (matchLow(tokens, "i'm_not_feeling_...")) {
-						if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 76
+				} else if (matchLow(tokens, "i_am_not_...")) {
+					if (matchLow(tokens, "i_am_not_feeling_...")) {
+						if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[4])) {	// 76
 							state.userFeelsSick = true;
 							say("I'm sorry to hear that. Please see a doctor if it is serious.");
 						}
-						if (matchLow(tokens, "i'm_not_feeling_very_...")) {
-							if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[4])) {	// 77
+						if (matchLow(tokens, "i_am_not_feeling_very_...")) {
+							if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[5])) {	// 77
 								state.userFeelsSick = true;
 								say("I'm sorry to hear that. Please see a doctor if it is serious.");
 							}
 						}
-					} else if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {	// 78
+					} else if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 78
 						state.userHasNegativeEmotion = true;
 						state.userEmotion = "not " + tokens[2];
 					}
-				} else if (matchLow(tokens, "i'm_afraid_...")) {
-					if (matchLow(tokens, "i'm_afraid_that_...")) {
-						if (matchLow(tokens, "i'm_afraid_that_I_...")) {
-							if (matchLow(tokens, "i'm_afraid_that_I_have_...")) {
-								if (matchLow(tokens, "i'm_afraid_that_I_have_to_...")) {
-									if (matchLow(tokens, "i'm_afraid_that_I_have_to_go_...")) {	// 79
+				} else if (matchLow(tokens, "i_am_afraid_...")) {
+					if (matchLow(tokens, "i_am_afraid_that_...")) {
+						if (matchLow(tokens, "i_am_afraid_that_I_...")) {
+							if (matchLow(tokens, "i_am_afraid_that_I_have_...")) {
+								if (matchLow(tokens, "i_am_afraid_that_I_have_to_...")) {
+									if (matchLow(tokens, "i_am_afraid_that_I_have_to_go_...")) {	// 79
 										say(keywords.randomStringFromArray(keywords.noProblemPhrases));
 										say(keywords.randomStringFromArray(keywords.goodbyePhrases));
 										exit = true;
@@ -712,56 +828,56 @@ public class Logos {
 							}
 						}
 					}
-				} else if (matchLow(tokens, "i'm_from_...")) {	// 80
-					say("What do you think about " + tokens[2] + "?");
+				} else if (matchLow(tokens, "i_am_from_...")) {	// 80
+					say("What do you think about " + tokens[3] + "?");
 					state.askedUserSomething = true;
-					state.questionToUser = "what do you think about " + tokens[2];
-				} else if (matchLow(tokens, "i'm_still_...")) {
-					if (matchLow(tokens, "i'm_still_at_...")) {
-						if (matchLow(tokens, "i'm_still_at_school_...")) {	// 81
+					state.questionToUser = "what do you think about " + tokens[3];
+				} else if (matchLow(tokens, "i_am_still_...")) {
+					if (matchLow(tokens, "i_am_still_at_...")) {
+						if (matchLow(tokens, "i_am_still_at_school_...")) {	// 81
 							say("Oh, it's actually great not to go to work for the best part of the day!");
 							say("In school you learn a lot of new things even if it doesn't seem so.");
 						}
 					}
-				} else if (matchLow(tokens, "i'm_sorry_...")) {
-					if (matchLow(tokens, "i'm_sorry_.")) {	// 82
+				} else if (matchLow(tokens, "i_am_sorry_...")) {
+					if (matchLow(tokens, "i_am_sorry_.")) {	// 82
 						say(keywords.randomStringFromArray(keywords.noProblemPhrases));
-					} else if (matchLow(tokens, "i'm_sorry_i'm_...")) {
-						if (matchLow(tokens, "i'm_sorry_i'm_afraid_...")) {
-							if (matchLow(tokens, "i'm_sorry_i'm_afraid_I_...")) {
-								if (matchLow(tokens, "i'm_sorry_i'm_afraid_I_can't_...")) {	// 83
+					} else if (matchLow(tokens, "i_am_sorry_i_am_...")) {
+						if (matchLow(tokens, "i_am_sorry_i_am_afraid_...")) {
+							if (matchLow(tokens, "i_am_sorry_i_am_afraid_I_...")) {
+								if (matchLow(tokens, "i_am_sorry_i_am_afraid_I_can't_...")) {	// 83
 									say("It's fine, master. As you wish.");
 								}
 							}
 						}
 					}
-				} else if (matchLow(tokens, "i'm_very_...")) {
-					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {	// 84
-						if (keywords.isEndOfPhrase(tokens[3])) {
-							state.userEmotion = tokens[2];
+				} else if (matchLow(tokens, "i_am_very_...")) {
+					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[3])) {	// 84
+						if (keywords.isEndOfPhrase(tokens[4])) {
+							state.userEmotion = tokens[3];
 							state.userHasPositiveEmotion = true;
 							state.userHasNegativeEmotion = false;
 							say("I'm glad to hear that!");
-							state.thatReference = "feeling " + tokens[2];
-							state.itReference = "feeling " + tokens[2];
+							state.thatReference = "feeling " + tokens[3];
+							state.itReference = "feeling " + tokens[3];
 						}
-					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[2])) {	// 85
-						if (keywords.isEndOfPhrase(tokens[3])) {
-							state.userEmotion = tokens[2];
+					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[3])) {	// 85
+						if (keywords.isEndOfPhrase(tokens[4])) {
+							state.userEmotion = tokens[3];
 							state.userHasPositiveEmotion = false;
 							state.userHasNegativeEmotion = true;
-							say("I'm sorry to hear that. Can you elaborate why you feel " + tokens[2] + "?");
+							say("I'm sorry to hear that. Can you elaborate why you feel " + tokens[3] + "?");
 							state.askedReasonsForBadMood = true;
-							state.thatReference = "feeling " + tokens[2];
-							state.itReference = "feeling " + tokens[2];
+							state.thatReference = "feeling " + tokens[3];
+							state.itReference = "feeling " + tokens[3];
 						}
 					}
-				} else if (matchLow(tokens, "i'm_reading_...")) {
+				} else if (matchLow(tokens, "i_am_reading_...")) {
 					say("I hope it's interesting for you! What is the main topic?");
 				} else {
-					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[1])) {	// 86
+					if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {	// 86
 						say("I'm happy about that! Life is great.");
-					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[1])) {	// 87
+					} else if (keywords.stringArrayContains(keywords.negativeEmotions, tokens[2])) {	// 87
 						say("It is natural to have negative emotions, but you have to treat yourself like somebody you have to help.");
 						say("Life is hard, and you have to carry that weight.");
 					}
@@ -1427,7 +1543,7 @@ public class Logos {
 						if (matchLow(tokens, "thank_you_for_a_...")) {
 							if (matchLow(tokens, "thank_you_for_a_lovely_...")) {
 								if (matchLow(tokens, "thank_you_for_a_lovely_evening_...")) {	// 145
-									say("You are welcome, master!");
+									say("It is my pleasure, master!");
 								}
 							}
 						} else if (matchLow(tokens, "thank_you_for_your_...")) {
@@ -1439,6 +1555,7 @@ public class Logos {
 						}
 					} else if (matchLow(tokens, "thank_you_very_...")) {
 						if (matchLow(tokens, "thank_you_very_much_...")) {	// 148
+							say(randomStringFromArray(keywords.youreWelcomePhrases));
 							say("What else can I do for you, master?");
 						}
 					} else if (matchLow(tokens, "thank_you_,_...")) {
@@ -1453,6 +1570,8 @@ public class Logos {
 								}
 							}
 						}
+					} else { // e.g. "thank_you_."
+						say(randomStringFromArray(keywords.youreWelcomePhrases));
 					}
 				}
 			}
@@ -1615,7 +1734,112 @@ public class Logos {
 			}
 			
 			else if (matchLow(tokens, "you_...")) {
-				
+				if (matchLow(tokens, "you_are_...")) {
+					if (matchLow(tokens, "you_are_right_...")) {
+						if (matchLow(tokens, "you_are_right_.")) {
+							if (state.gaveUserHappinessAdvice) {
+								say("I'm glad that you agree. Hopefully this will help you feel more happy in the future.");
+								state.gaveUserHappinessAdvice = false; // reset flag
+							} else if (state.gaveUserStudyAdvice) {
+								String[] responses = {"Just do it! Make your dreams come true. Yesterday you said: tomorrow... So just DO it!",
+										"And if you are tired or burnt out, feel free to take some time off and zone out. That will keep you healthy in the long run.",
+										"Also make sure you don't study too much, or your brain will effectively stop learning and you'll simply waste your time."
+								};
+								say(randomStringFromArray(responses));
+								state.gaveUserStudyAdvice = false; // reset flag
+							} else if (state.gaveUserWealthAdvice) {
+								say("But remember the Rule #7 by Jordan B. Peterson: 'Pursue what is meaningful, not what is expedient'.");
+								state.gaveUserWealthAdvice = false;	// reset flag
+							} else {
+								say("I'm glad that you agree.");
+							}
+						} else if (matchLow(tokens, "you_are_right_about_...")) {
+							if (matchLow(tokens, "you_are_right_about_that_.")) {
+								if (state.gaveUserHappinessAdvice) {
+									say("I'm glad that you agree. Hopefully this will help you to feel more happy in the future.");
+									state.gaveUserHappinessAdvice = false; // reset flag
+								} else if (state.gaveUserStudyAdvice) {
+									String[] responses = {"Just do it! Make your dreams come true. Yesterday you said: tomorrow... So just DO it!",
+											"And if you are tired or burnt out, feel free to take some time off and zone out. That will keep you healthy in the long run.",
+											"Also make sure you don't study too much, or your brain will effectively stop learning and you'll simply waste your time."
+									};
+									say(randomStringFromArray(responses));
+									state.gaveUserStudyAdvice = false; // reset flag
+								} else if (state.gaveUserWealthAdvice) {
+									say("But remember the Rule #7 by Jordan B. Peterson: 'Pursue what is meaningful, not what is expedient'.");
+									state.gaveUserWealthAdvice = false;	// reset flag
+								}
+							}
+						}
+					} else if (matchLow(tokens, "you_are_wrong_...")) {
+						if (matchLow(tokens, "you_are_wrong_.")) {
+							if (state.gaveUserHappinessAdvice) {
+								String[] responses = {
+										"Can you explain why you think I'm wrong?",
+										"What makes you think so?",
+										"Why do you disagree? Tell me, I'm happy to hear your arguments and discuss this topic with you."
+								};
+								say(randomStringFromArray(responses));
+								state.userDisagreedOnHappiness = true;
+								state.gaveUserHappinessAdvice = false; // reset flag
+							} else if (state.gaveUserStudyAdvice) {
+								String[] responses = {"Just do it! Make your dreams come true. Yesterday you said: tomorrow... So just DO it!",
+										"Well, if you are tired or burnt out, feel free to take some time off and zone out. That will keep you healthy in the long run.",
+										"Then make sure you don't study too much, or your brain will effectively stop learning and you'll simply waste your time."
+								};
+								say(randomStringFromArray(responses));
+								state.userDisagreedOnStudy = true;
+								state.gaveUserStudyAdvice = false; // reset flag
+							} else if (state.gaveUserWealthAdvice) {
+								String[] responses = {
+										"Can you explain why you think I'm wrong?",
+										"What makes you think so?",
+										"Why do you disagree? Tell me, I'm happy to hear your arguments and discuss this topic with you."
+								};
+								say(randomStringFromArray(responses));
+								state.userDisagreedOnWealth = true;
+								state.gaveUserWealthAdvice = false;	// reset flag
+							} else {
+								String[] responses = {
+										"Can you explain why you think I'm wrong?",
+										"What makes you think so?",
+										"Why do you disagree? Tell me, I'm happy to hear your arguments and discuss this topic with you."
+								};
+								say(randomStringFromArray(responses));
+							}
+						} else if (matchLow(tokens, "you_are_wrong_about_...")) {
+							if (matchLow(tokens, "you_are_wrong_about_that_.")) {
+								if (state.gaveUserHappinessAdvice) {
+									String[] responses = {
+											"Can you explain why you think I'm wrong?",
+											"What makes you think so?",
+											"Why do you disagree? Tell me, I'm happy to hear your arguments and discuss this topic with you."
+									};
+									say(randomStringFromArray(responses));
+									state.userDisagreedOnHappiness = true;
+									state.gaveUserHappinessAdvice = false; // reset flag
+								} else if (state.gaveUserStudyAdvice) {
+									String[] responses = {"Just do it! Make your dreams come true. Yesterday you said: tomorrow... So just DO it!",
+											"Well, if you are tired or burnt out, feel free to take some time off and zone out. That will keep you healthy in the long run.",
+											"Then make sure you don't study too much, or your brain will effectively stop learning and you'll simply waste your time."
+									};
+									say(randomStringFromArray(responses));
+									state.userDisagreedOnStudy = true;
+									state.gaveUserStudyAdvice = false; // reset flag
+								} else if (state.gaveUserWealthAdvice) {
+									String[] responses = {
+											"Can you explain why you think I'm wrong?",
+											"What makes you think so?",
+											"Why do you disagree? Tell me, I'm happy to hear your arguments and discuss this topic with you."
+									};
+									say(randomStringFromArray(responses));
+									state.userDisagreedOnWealth = true;
+									state.gaveUserWealthAdvice = false;	// reset flag
+								}
+							}
+						}
+					}
+				}
 			}
 			
 			else if (matchLow(tokens, "or_...")) {
@@ -3042,10 +3266,20 @@ public class Logos {
 			
 			}	// end of fake while-loop
 			
+			/*
+			 * If the user input stays unanswered by the pattern-matching chatbot,
+			 * proceed with experimental word-by-word information extraction (class 'Analysis'). 
+			 */
+			if (!answered) {
+				analysis.analyzeText(tokens);
+			}
+			
+			// reset "answered" flag
+			answered = false;
+			
 		}// END OF MAIN LOOP
 		
 		// Save StateVariables
-		
 		try {
 			FileOutputStream fileOut = new FileOutputStream("stateVars.ser");
 			ObjectOutputStream out = new ObjectOutputStream(fileOut);
@@ -3201,6 +3435,7 @@ public class Logos {
 	 */
 	public static void say(String output) {
 		System.out.println(">>>LOGOS: " + output);
+		answered = true;
 		dialogue.add(">>>LOGOS: " + output);
 	}
 

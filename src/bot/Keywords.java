@@ -135,7 +135,10 @@ public class Keywords {
 			"It's alright.",
 			"It's fine, I can understand.",
 			"Oh, it's not a big deal!"};
+	public String[] youreWelcomePhrases = {"You are welcome!", "It's my pleasure to be helping you!", "Logos at your service!"};
 	public String[] musicGenres = {"classical", "rock", "jazz", "blues", "techno", "rap", "metal", "soul", "pop", "indie", "alternative", "punk", "funk", "country", "reggae"};
+	public String[] planets = {"Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"};
+	
 	
 	/*
 	 * Conceptual:
