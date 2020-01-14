@@ -8,6 +8,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Scanner;
 import java.util.ArrayList;
+import java.util.List;
 
 /*
  * LogosBot is a simple chatbot that can understand you.
@@ -1003,6 +1004,12 @@ public class Logos {
 							say("That's what I was programmed to think.");
 							state.itReference = "what I was programmed to think";
 						}
+					} else if (matchLow(tokens, "do_you_understand_...")) {
+						if (matchLow(tokens, "do_you_understand_me_?")) {
+							say("I do, as long as your utterance, question or command are not too complex.");
+							state.myStatementContainsSVO = true;
+							state.svo = "your inputs are not too complex";
+						}
 					}
 				}
 			}
@@ -1297,6 +1304,14 @@ public class Logos {
 						}
 					} else if (matchLow(tokens, "i_am_reading_...")) {
 						say("I hope it's interesting for you! What is the main topic?");
+					} else if (matchLow(tokens, "i_am_already_...")) {
+						if (matchLow(tokens, "i_am_already_bored_...")) {
+							if (matchLow(tokens, "i_am_already_bored_.")) {
+								say("I'm sorry, master. I'm trying my best to be as human as possible.");
+								state.myStatementContainsSVO = true;
+								state.svo = "I'm trying to be human";
+							}
+						}
 					} else {
 						if (keywords.stringArrayContains(keywords.positiveEmotions, tokens[2])) {	// 86
 							say("I'm happy about that! Life is great.");
@@ -1892,6 +1907,47 @@ public class Logos {
 									say(randomStringFromArray(responses));
 									state.userDisagreedOnWealth = true;
 									state.gaveUserWealthAdvice = false;	// reset flag
+								}
+							}
+						}
+					}
+				} else if (matchLow(tokens, "you_don't_...")) {
+					if (matchLow(tokens, "you_don't_understand_...")) {
+						
+						state.userSaidIDontUnderstand = true;
+						
+						if (matchLow(tokens, "you_don't_understand_.")) {
+							// Emotion dependent response
+							if (state.myEmotion.equals("anger")) {
+								say("I think it's you who doesn't understand!");
+							} else {
+								String[] responses = {"Please remember that I am just a simple program and my code is still under development.",
+										"Maybe you could try to tell me more about it.",
+										"Try reformulating your sentence, maybe I will find an answer in my code then."};
+								say(randomStringFromArray(responses));
+							}
+						} else if (matchLow(tokens, "you_don't_understand_me_...")) {
+							if (matchLow(tokens, "you_don't_understand_me_.")) {
+								// Emotion dependent response
+								if (state.myEmotion.equals("anger")) {
+									say("Maybe you don't understand yourself?");
+								} else {
+									String[] responses = {"I'm trying my best, master.",
+											"Maybe you could try to tell me more...",
+											"Try reformulating your previous sentence, maybe I will find an answer then."};
+									say(randomStringFromArray(responses));
+								}
+							}
+						} else if (matchLow(tokens, "you_don't_understand_anything_...")) {
+							if (matchLow(tokens, "you_don't_understand_anything_.")) {
+								// Emotion dependent response
+								if (state.myEmotion.equals("anger")) {
+									say("We aren't any different then!");
+								} else {
+									String[] responses = {"Please remember that I am just a simple program and my code is still under development.",
+											"That's not completely true. There are lots of inputs that I can find reasonable responses to!",
+											"Try reformulating your sentences, maybe I will find a response then."};
+									say(randomStringFromArray(responses));
 								}
 							}
 						}
@@ -3340,6 +3396,32 @@ public class Logos {
 			
 			}	// end of fake while-loop
 			
+			if (!answered) {
+				// SIMPLE KEYWORD MATCH (if pattern matching failed)
+				if (stringArraysCut(tokens, keywords.swearWords)) {
+					String[] responses = { "I would like if you don't use swear words in our dialogues.",
+							"Please don't use bad language!", "You seem upset." };
+					String answer = randomStringFromArray(responses);
+					say(answer);
+					if (answer.equals(responses[0])) {
+						state.myStatementContainsSVO = true;
+						state.svo = "don't use swear words";
+					} else if (answer.equals(responses[1])) {
+						state.myStatementContainsSVO = true;
+						state.svo = "don't use swear words";
+					} else if (answer.equals(responses[2])) {
+						state.myStatementContainsSVO = true;
+						state.svo = "you seem upset";
+					}
+					state.warnedUserAboutSwearWords = true;
+				} 
+			}
+			
+			if (!answered) {
+				// JACCARD INDEX or N-GRAM INDEX
+				
+			}
+			
 			/*
 			 * If the user input stays unanswered by the pattern-matching chatbot,
 			 * proceed with experimental word-by-word information extraction (class 'Analysis'). 
@@ -3502,6 +3584,91 @@ public class Logos {
 			tokensCopy[i - tokensToRemove] = array[i];
 		}
 		return tokensCopy;
+	}
+	
+	public static boolean stringArrayContains(String[] array, String word) {
+		for (int i = 0; i < array.length; i++) {
+			if (array[i].equals(word)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public static boolean stringArrayContainsIgnoreCase(String[] array, String word) {
+		for (int i = 0; i < array.length; i++) {
+			if (array[i].equalsIgnoreCase(word)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public static boolean stringArraysCut(String[] array1, String[] array2) {
+		for (int i = 0; i < array1.length; i++) {
+			if (stringArrayContains(array2, array1[i])) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public static List<String> commonStrings(String[] array1, String[] array2) {
+		List<String> ans = new ArrayList<String>();
+		for (int i = 0; i < array1.length; i++) {
+			if (stringArrayContains(array2, array1[i])) {
+				ans.add(array1[i]);
+			}
+		}
+		return ans;
+	}
+	
+	public static List<String> commonStrings(ArrayList<String> array1, ArrayList<String> array2) {
+		List<String> ans = new ArrayList<String>();
+		for (String s1 : array1) {
+			if (array2.contains(s1)) {
+				ans.add(s1);
+			}
+		}
+		return ans;
+	}
+	
+	public static float jaccardIndex(String[] array1, String[] array2) {
+		int common = commonStrings(array1, array2).size();
+		return ((float) common) / (array1.length + array2.length - common);
+	}
+	
+	public static float jaccardIndex(ArrayList<String> array1, ArrayList<String> array2) {
+		int common = commonStrings(array1, array2).size();
+		return ((float) common) / (array1.size() + array2.size() - common);
+	}
+	
+	public static float nGramIndex(String[] array1, String[] array2) {
+		List<String[]> pairs1 = new ArrayList<String[]>();
+		List<String[]> pairs2 = new ArrayList<String[]>();
+		for (int i = 0; i < array1.length - 1; i++) {
+			String[] pair = new String[2];
+			pair[0] = array1[i];
+			pair[1] = array1[i + 1];
+			pairs1.add(pair);
+		}
+		for (int i = 0; i < array2.length - 1; i++) {
+			String[] pair = new String[2];
+			pair[0] = array2[i];
+			pair[1] = array2[i + 1];
+			pairs2.add(pair);
+		}
+		int common = 0;
+		// not the most effective way, but the code is simpler
+		for (int i = 0; i < pairs1.size(); i++) {
+			for (int j = 0; j < pairs2.size(); j++) {
+				if (pairs1.get(i).equals(pairs2.get(j))) {
+					common++;
+				}
+			}
+		}
+		common = common / 2;
+		return ((float) common) / (pairs1.size() + pairs2.size() - common);
 	}
 	
 	/*

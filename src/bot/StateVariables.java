@@ -14,8 +14,8 @@ public class StateVariables implements java.io.Serializable {
 	private static final long serialVersionUID = -8652896608690068071L;
 
 	// SELF
-	public String ownMood = "";
-	public String name = "";
+	public String ownMood = "happiness";
+	public String name = "Logos";
 	public String mySex = "male";
 	public int yearOfBirth = 2019;
 	public int monthOfBirth = 11;	// November
@@ -28,6 +28,7 @@ public class StateVariables implements java.io.Serializable {
 	public String favouriteMusicGenre = "metal";
 	public String myLocation = "";
 	public String[] understoodLanguages = {"English"};
+	public String myEmotion = "neutral";
 	
 	// USER
 	public String usersName = "";
@@ -114,6 +115,8 @@ public class StateVariables implements java.io.Serializable {
 	public boolean askedIfUserHasChildren = false;
 	public boolean askedUsersAge = false;
 	public boolean userHasLowSelfEsteem = false;
+	public boolean warnedUserAboutSwearWords = false;
+	public boolean userSaidIDontUnderstand = false;
 	// Disagreements
 	public boolean userDisagreedOnHappiness = false;
 	public boolean userDisagreedOnWealth = false;
@@ -141,6 +144,8 @@ public class StateVariables implements java.io.Serializable {
 		iLikeUser = true;
 		favouriteMusicGenre = "metal";
 		understoodLanguages = new String[]{"English"};
+		ownMood = "happiness";
+		myEmotion = "neutral";
 		// Temporal data
 		Date date = new Date();
 		LocalDate localDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
