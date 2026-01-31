@@ -1,20 +1,44 @@
-# LogOS
-Logical Operating System
+# LogOS (Rewrite)
 
-This is a hobby project in which I aim at creating a conversational machine (chatbot). Hopefully one day it will be able to hold a simple
-conversation. For now it is just an experimental repository where I throw different ideas in (see repo LogosBot as well).
+LogOS is an experiment in **symbolic, resource-efficient conversational reasoning**. The original Java prototype explored NLP and hypergraph ideas inspired by cognitive architectures (Soar, OpenCog, NARS). This rewrite focuses on the same spirit with a much lighter, browser-based interface and a modular symbolic core.
 
-There are two kinds of approaches that I considered: symbolic AI and a simple pattern matching algorithm with a huge amount of hardcoded
-responses to user inputs. So far I've noticed that natural language has so many exceptions from rules that it seems impossible to write
-an elegant algorithm that describes the whole variety of possible sentences without losing "soul" or individual meaning.
+## Goals
 
-I packed symbolic approaches and NLP in `logos` and simple chatbot in `bot`. The latter doesn't even need any external libraries (yet).
+- Prioritize symbolic reasoning and hypergraph-style memory.
+- Use deep learning **only where it is strictly necessary**.
+- Keep the system small, inspectable, and efficient.
 
-As for now I prefer the personal chatbot approach that gives a very good possibility to express myself. That's exactly what I need from
-this project. I don't want to create yet another "soulless" utility maximizer or anything like that. Our world has a lot of that stuff
-already.
+## Quick start
 
-But the simple chatbot isn't totally stupid - it's not just a dictionary of responses. The class `StateVariables` will contain a whole
-bunch of data fields that should describe internal and external states. This will allow a primitive context understanding and coreference.
+> Requires Python 3.11+.
 
-My strategy will be just adding at least 10 patterns a day to the huge `Logos` class. Let's see where this will take me.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Open <http://localhost:8000> in your browser.
+
+## Module map (rewrite)
+
+| Module | Purpose |
+| --- | --- |
+| `app/main.py` | FastAPI server that hosts the browser UI and exposes `/api/chat`. |
+| `logos/engine.py` | Orchestrates parsing, memory updates, and response selection. |
+| `logos/nlp.py` | Lightweight parsing and intent extraction (no heavy ML). |
+| `logos/memory.py` | Stores symbolic facts with indexing for efficient lookup. |
+| `logos/hypergraph.py` | Minimal hypergraph structure to store relations. |
+| `logos/reasoner.py` | Rule-based response generation over symbolic memory. |
+| `logos/state.py` | Conversation state (name, mood, recent topics). |
+| `web/` | Static browser UI for the chat experience. |
+
+## Architecture notes
+
+- The chat loop is designed to stay cheap: tokenization, heuristics, and symbolic memory are enough for many conversational goals.
+- You can integrate deeper NLP or embeddings later, but only where symbolic reasoning fails.
+
+## Legacy code
+
+The original Java prototype lives under `src/` and remains available for reference. The rewrite lives in the top-level `app/`, `logos/`, and `web/` folders.
