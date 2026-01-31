@@ -25,6 +25,9 @@ class Reasoner:
     def respond_to_query(self, subject: str) -> str:
         if not subject:
             return "What would you like to know?"
+        owner, attribute = self._parse_possessive_query(subject)
+        if owner and attribute:
+            return self._describe_possessive(owner, attribute)
         symbol = self._knowledge.symbol_by_name(subject)
         if not symbol:
             return f"I do not know what {subject} is yet."
@@ -47,7 +50,8 @@ class Reasoner:
         locations = [
             f"{lk.relation} {self._link_target_name(lk)}"
             for lk in outgoing
-            if lk.relation.startswith("located_") or lk.relation in {"in", "on", "at", "under", "above", "near"}
+            if lk.relation.startswith("located_")
+            or lk.relation in {"in", "on", "at", "under", "above", "near", "where_loc", "where_dir"}
         ]
         if locations:
             buckets.append(f"{symbol.name} is {', '.join(locations)}")
@@ -55,7 +59,7 @@ class Reasoner:
         other_links = [
             f"{lk.relation} {self._link_target_name(lk)}"
             for lk in outgoing
-            if lk.relation not in {"is_a", "has_property"}
+            if lk.relation not in {"is_a", "has_property", "where_loc", "where_dir"}
             and not lk.relation.startswith("located_")
         ]
         if other_links:
@@ -67,6 +71,35 @@ class Reasoner:
         target = self._knowledge.symbol_by_id(link.target)
         return target.name if target else "something"
 
+    def _parse_possessive_query(self, subject: str) -> Tuple[Optional[str], Optional[str]]:
+        lowered = subject.strip().lower()
+        if lowered.startswith("#user "):
+            return "#USER", subject[6:].strip()
+        if lowered.startswith("#self "):
+            return "#SELF", subject[6:].strip()
+        return None, None
+
+    def _describe_possessive(self, owner: str, attribute: str) -> str:
+        owner_symbol = self._knowledge.symbol_by_name(owner)
+        if not owner_symbol:
+            return f"I do not know who {owner} is."
+        attr_lower = attribute.lower()
+        links = self._knowledge.links_from(owner_symbol.id)
+        if attr_lower == "name":
+            names = [self._link_target_name(lk) for lk in links if lk.relation == "name"]
+            if names:
+                return f"{self._owner_pronoun(owner)} name is {names[-1]}."
+            return f"I do not know {self._owner_pronoun(owner)} name yet."
+        for link in links:
+            if link.relation == attribute:
+                return f"{self._owner_pronoun(owner)} {attribute} is {self._link_target_name(link)}."
+        return f"I do not know {self._owner_pronoun(owner)} {attribute} yet."
+
+    def _owner_pronoun(self, owner: str) -> str:
+        if owner == "#SELF":
+            return "my"
+        return "your"
+
     def pending_clarification_prompt(self, clarification: Clarification) -> str:
         base = f"I don't know what '{clarification.term}' is yet."
         context = f" You used it in: {clarification.context}."
@@ -75,6 +108,11 @@ class Reasoner:
 
     def small_talk(self) -> str:
         if self._state.user_name:
-            return f"How is your day going, {self._state.user_name}?"
-        return "Tell me a fact, ask a question, or define a term."
-
+            return (
+                f"That sounds interesting, {self._state.user_name}. "
+                "I am still learning, so could you rephrase that as a simple fact or question?"
+            )
+        return (
+            "That sounds interesting. I am still learning, so please tell me a simple fact, "
+            "ask a question, or define a term."
+        )

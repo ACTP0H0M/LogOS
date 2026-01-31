@@ -50,12 +50,61 @@ class KnowledgeBase:
         self._next_link_id = 0
         self._next_branch_id = 0
         self._category_ids: Dict[str, int] = {}
+        self._relation_names: List[str] = []
         self._ensure_base_categories()
+        self._ensure_special_symbols()
+        self._ensure_relation_ontology()
 
     def _ensure_base_categories(self) -> None:
-        for name in ("#ENTITY", "#PROPERTY", "#RELATION", "#ACTION", "#LOCATION", "#TIME", "#STATE"):
+        for name in ("#ENTITY", "#PROPERTY", "#VERB", "#RELATION", "#LOCATION", "#TIME", "#STATE"):
             symbol = self._create_symbol(name, kind="category")
             self._category_ids[_normalize(name)] = symbol.id
+
+    def _ensure_special_symbols(self) -> None:
+        self.set_symbol_kind("#SELF", "entity")
+        self.set_symbol_kind("#USER", "entity")
+        self.set_symbol_kind("#NOW", "time")
+        self.add_alias("#USER", "user")
+        self.add_alias("#SELF", "logos")
+        self.add_alias("#NOW", "now")
+
+    def _ensure_relation_ontology(self) -> None:
+        relation_names = [
+            "is_a",
+            "is",
+            "do",
+            "did",
+            "have",
+            "is_needed_to",
+            "causes",
+            "because",
+            "because_of",
+            "what",
+            "whom",
+            "opposite_to",
+            "prep",
+            "if",
+            "and",
+            "or",
+            "can_do",
+            "can_have",
+            "is_component_of",
+            "how",
+            "when",
+            "how_long",
+            "unit",
+            "where_dir",
+            "where_loc",
+            "parallel_to",
+            "task_link",
+            "method_link",
+            "in_order_to",
+            "has_property",
+        ]
+        self._relation_names = relation_names
+        for name in relation_names:
+            symbol = self.ensure_symbol(name, kind="relation")
+            symbol.description = "relation"
 
     def _create_symbol(self, name: str, kind: str = "unknown", symbol_id: Optional[int] = None) -> Symbol:
         sym_id = self._next_symbol_id if symbol_id is None else symbol_id
@@ -72,6 +121,8 @@ class KnowledgeBase:
         key = _normalize(name)
         if key in self._symbols_by_name:
             symbol = self._symbols_by_name[key]
+            if name.strip() and any(char.isupper() for char in name) and symbol.name.islower():
+                symbol.name = name.strip()
             if kind and symbol.kind == "unknown":
                 symbol.kind = kind
                 self._link_to_category(symbol, kind)
@@ -84,14 +135,23 @@ class KnowledgeBase:
     def _link_to_category(self, symbol: Symbol, kind: str) -> None:
         parent = self._category_for_kind(kind)
         if parent:
-            self.add_link(symbol.id, parent.id, "is_a", generality=1.0, actuality=1.0)
+            if not self._has_link(symbol.id, parent.id, "is_a"):
+                self.add_link(symbol.id, parent.id, "is_a", generality=1.0, actuality=1.0)
+
+    def _has_link(self, source_id: int, target_id: int, relation: str) -> bool:
+        for link_id in self._links_from.get(source_id, []):
+            link = self._links_by_id.get(link_id)
+            if link and link.target == target_id and link.relation == relation:
+                return True
+        return False
 
     def _category_for_kind(self, kind: str) -> Optional[Symbol]:
         mapping = {
             "entity": "#ENTITY",
             "property": "#PROPERTY",
             "relation": "#RELATION",
-            "action": "#ACTION",
+            "action": "#VERB",
+            "verb": "#VERB",
             "location": "#LOCATION",
             "time": "#TIME",
             "state": "#STATE",
@@ -164,15 +224,45 @@ class KnowledgeBase:
         parent_symbol = self.ensure_symbol(parent, kind="category")
         return self.add_link(child_symbol.id, parent_symbol.id, "is_a", generality=generality, actuality=1.0)
 
-    def add_property(self, subject: str, prop: str, generality: float = 0.2) -> Link:
+    def add_property(self, subject: str, prop: str, generality: float = 0.2, actuality: float = 1.0) -> Link:
         subject_symbol = self.ensure_symbol(subject, kind="entity")
         prop_symbol = self.ensure_symbol(prop, kind="property")
-        return self.add_link(subject_symbol.id, prop_symbol.id, "has_property", generality=generality, actuality=1.0)
+        return self.add_link(
+            subject_symbol.id,
+            prop_symbol.id,
+            "has_property",
+            generality=generality,
+            actuality=actuality,
+        )
 
-    def add_relation(self, subject: str, relation: str, obj: str, generality: float = 0.2) -> Link:
+    def add_is(self, subject: str, descriptor: str, generality: float = 0.2, actuality: float = 1.0) -> Link:
+        subject_symbol = self.ensure_symbol(subject, kind="entity")
+        desc_symbol = self.ensure_symbol(descriptor, kind="property")
+        return self.add_link(
+            subject_symbol.id,
+            desc_symbol.id,
+            "is",
+            generality=generality,
+            actuality=actuality,
+        )
+
+    def add_relation(
+        self,
+        subject: str,
+        relation: str,
+        obj: str,
+        generality: float = 0.2,
+        actuality: float = 1.0,
+    ) -> Link:
         subject_symbol = self.ensure_symbol(subject, kind="entity")
         object_symbol = self.ensure_symbol(obj, kind="entity")
-        return self.add_link(subject_symbol.id, object_symbol.id, relation, generality=generality, actuality=1.0)
+        return self.add_link(
+            subject_symbol.id,
+            object_symbol.id,
+            relation,
+            generality=generality,
+            actuality=actuality,
+        )
 
     def symbol_by_name(self, name: str) -> Optional[Symbol]:
         return self._symbols_by_name.get(_normalize(name))
@@ -194,6 +284,16 @@ class KnowledgeBase:
 
     def branches(self) -> List[Branch]:
         return list(self._branches_by_id.values())
+
+    def remove_link(self, link_id: int) -> bool:
+        link = self._links_by_id.pop(link_id, None)
+        if not link:
+            return False
+        if link.source in self._links_from:
+            self._links_from[link.source] = [lid for lid in self._links_from[link.source] if lid != link_id]
+        if link.target in self._links_to:
+            self._links_to[link.target] = [lid for lid in self._links_to[link.target] if lid != link_id]
+        return True
 
     def touch_link(self, link_id: int, delta: float = 0.05) -> None:
         link = self._links_by_id.get(link_id)
@@ -294,6 +394,8 @@ class KnowledgeBase:
         }
         if not kb._category_ids:
             kb._ensure_base_categories()
+        kb._ensure_special_symbols()
+        kb._ensure_relation_ontology()
         return kb
 
     @classmethod
@@ -381,6 +483,8 @@ class KnowledgeBase:
         }
         if not kb._category_ids:
             kb._ensure_base_categories()
+        kb._ensure_special_symbols()
+        kb._ensure_relation_ontology()
         return kb
 
     def recent_links(self, limit: int = 10) -> List[Link]:

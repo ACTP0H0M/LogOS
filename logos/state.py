@@ -9,6 +9,7 @@ class Clarification:
     term: str
     role: str
     context: str
+    link_ids: List[int] = field(default_factory=list)
 
 
 @dataclass
@@ -17,6 +18,8 @@ class ConversationState:
     mood: str | None = None
     last_topics: List[str] = field(default_factory=list)
     pending_clarifications: List[Clarification] = field(default_factory=list)
+    last_added_links: List[int] = field(default_factory=list)
+    last_utterance: str | None = None
 
     def remember_topic(self, topic: str) -> None:
         if topic and topic not in self.last_topics:

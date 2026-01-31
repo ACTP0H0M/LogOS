@@ -37,6 +37,7 @@ Open <http://localhost:8000> in your browser.
 ## Architecture notes
 
 - The chat loop is designed to stay cheap: tokenization, heuristics, and symbolic memory are enough for many conversational goals.
+- The system prefers explicit clarification over guessing; uncertain facts are stored with low confidence until confirmed.
 - You can integrate deeper NLP or embeddings later, but only where symbolic reasoning fails.
 
 ## Persistent memory
