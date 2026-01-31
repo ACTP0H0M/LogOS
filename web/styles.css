@@ -22,19 +22,20 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
+  padding: 0;
 }
 
 .app {
-  width: min(1280px, 96vw);
-  height: min(86vh, 920px);
-  min-height: 520px;
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
   background: rgba(15, 23, 42, 0.62);
   border: 1px solid rgba(148, 163, 184, 0.18);
   backdrop-filter: blur(12px);
-  border-radius: 22px;
+  border-radius: 0;
   padding: 18px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
+  box-shadow: none;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
