@@ -1,2 +1,0 @@
-#C hot opposite_to,1.0 cold
-#C big opposite_to,1.0 small

@@ -1,1 +1,0 @@
-#C intelligence is_needed_to,1.0 think

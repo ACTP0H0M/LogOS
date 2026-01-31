@@ -1,2 +1,0 @@
-#C weather can_be,1.0 bad
-#C weather can_be,1.0 good
