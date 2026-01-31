@@ -1,0 +1,92 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #0f1115;
+  color: #f1f5f9;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.app {
+  width: min(900px, 90vw);
+  background: #151a22;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2.2rem;
+}
+
+header p {
+  margin: 6px 0 0;
+  color: #cbd5f5;
+}
+
+.chat {
+  background: #0b0d12;
+  border-radius: 16px;
+  padding: 20px;
+  height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bubble {
+  padding: 12px 16px;
+  border-radius: 16px;
+  max-width: 70%;
+  line-height: 1.4;
+}
+
+.bubble.user {
+  background: #2563eb;
+  align-self: flex-end;
+}
+
+.bubble.bot {
+  background: #1f2937;
+  border: 1px solid #2f3645;
+  align-self: flex-start;
+}
+
+.composer {
+  display: flex;
+  gap: 12px;
+}
+
+.composer input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 999px;
+  border: 1px solid #2f3645;
+  background: #0b0d12;
+  color: inherit;
+}
+
+.composer button {
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: none;
+  background: #38bdf8;
+  color: #0b0d12;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.composer button:hover {
+  background: #0ea5e9;
+}

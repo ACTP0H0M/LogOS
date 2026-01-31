@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LogOS — Symbolic Chat</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>LogOS</h1>
+        <p>Symbolic, resource-efficient conversational reasoning.</p>
+      </header>
+
+      <section class="chat" id="chat"></section>
+
+      <form class="composer" id="composer">
+        <input
+          type="text"
+          name="message"
+          id="message"
+          placeholder="Say something about yourself or ask a question..."
+          autocomplete="off"
+          required
+        />
+        <button type="submit">Send</button>
+      </form>
+    </main>
+
+    <script>
+      const chat = document.getElementById("chat");
+      const composer = document.getElementById("composer");
+      const messageInput = document.getElementById("message");
+
+      const appendBubble = (text, type) => {
+        const bubble = document.createElement("div");
+        bubble.className = `bubble ${type}`;
+        bubble.textContent = text;
+        chat.appendChild(bubble);
+        chat.scrollTop = chat.scrollHeight;
+      };
+
+      appendBubble("Hi! Tell me about yourself or ask what I know.", "bot");
+
+      composer.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const message = messageInput.value.trim();
+        if (!message) return;
+        appendBubble(message, "user");
+        messageInput.value = "";
+
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+        const data = await response.json();
+        appendBubble(data.reply, "bot");
+      });
+    </script>
+  </body>
+</html>
