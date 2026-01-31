@@ -134,6 +134,59 @@ def parse_utterance(text: str) -> ParsedUtterance:
             subject = tokens_case[-1]
         return ParsedUtterance(kind="query", subject=subject, raw=raw)
 
+    # Existential "There is/are ..." should be handled before generic copular parsing.
+    if tokens[0] == "there" and len(tokens) > 2 and tokens[1] in {"is", "are"}:
+        remainder_case = tokens_case[2:]
+        remainder_lower = tokens[2:]
+        if any(token in PREPOSITIONS for token in remainder_lower):
+            for idx, token in enumerate(remainder_lower):
+                if token in PREPOSITIONS:
+                    prep = token
+                    subject_tokens_case = remainder_case[:idx]
+                    subject_tokens_lower = remainder_lower[:idx]
+                    object_tokens_case = remainder_case[idx + 1 :]
+                    object_tokens_lower = remainder_lower[idx + 1 :]
+
+                    subj_lower = _strip_determiners(subject_tokens_lower)
+                    subject, attributes = _head_and_modifiers(subj_lower)
+                    if subject and " " in subject:
+                        subj_case_tokens = _case_preserve(subject_tokens_case, subject_tokens_lower, subj_lower)
+                        subj_case = _join(subj_case_tokens).strip()
+                    else:
+                        subj_case = _case_for_head(subject_tokens_case, subject_tokens_lower, subject)
+                    if subj_case:
+                        subject = subj_case
+
+                    obj_lower = _strip_determiners(object_tokens_lower)
+                    obj, _ = _head_and_modifiers(obj_lower)
+                    if obj and " " in obj:
+                        obj_case_tokens = _case_preserve(object_tokens_case, object_tokens_lower, obj_lower)
+                        obj_case = _join(obj_case_tokens).strip()
+                    else:
+                        obj_case = _case_for_head(object_tokens_case, object_tokens_lower, obj)
+                    if obj_case:
+                        obj = obj_case
+
+                    relations = [(prep, obj)] if obj else []
+                    return ParsedUtterance(
+                        kind="statement",
+                        subject=subject,
+                        attributes=attributes,
+                        relations=relations,
+                        raw=raw,
+                    )
+
+        subj_lower = _strip_determiners(remainder_lower)
+        subject, attributes = _head_and_modifiers(subj_lower)
+        if subject and " " in subject:
+            subj_case_tokens = _case_preserve(remainder_case, remainder_lower, subj_lower)
+            subj_case = _join(subj_case_tokens).strip()
+        else:
+            subj_case = _case_for_head(remainder_case, remainder_lower, subject)
+        if subj_case:
+            subject = subj_case
+        return ParsedUtterance(kind="statement", subject=subject, attributes=attributes, raw=raw)
+
     for copula in COPULAS:
         if copula in tokens[1:-1]:
             idx = tokens.index(copula)
@@ -166,6 +219,7 @@ def parse_utterance(text: str) -> ParsedUtterance:
                     if token_lower in DEMONSTRATIVES:
                         subject = token_case
                         break
+            subject_case: Optional[str] = None
             if subject and " " in subject:
                 subject_case_tokens = _case_preserve(subject_tokens, subject_tokens_lower, subject_lower)
                 subject_case = _join(subject_case_tokens).strip()
@@ -175,17 +229,17 @@ def parse_utterance(text: str) -> ParsedUtterance:
             if subject_tokens_lower and subject_tokens_lower[0] in POSSESSIVE_ADJ:
                 possessor_case = subject_tokens[0]
             if possessor_case and subject:
-                head_case = _case_for_head(
-                    subject_tokens[1:],
-                    subject_tokens_lower[1:],
-                    subject.lower() if subject else None,
-                )
-                if head_case:
-                    subject = f"{possessor_case} {head_case}"
-                else:
+                if " " in subject:
                     subject = f"{possessor_case} {subject}"
-            else:
-                subject_case = _case_for_head(subject_tokens, subject_tokens_lower, subject.lower() if subject else None)
+                else:
+                    head_case = _case_for_head(
+                        subject_tokens[1:],
+                        subject_tokens_lower[1:],
+                        subject.lower() if subject else None,
+                    )
+                    subject = f"{possessor_case} {head_case or subject}"
+            elif subject and not subject_case:
+                subject_case = _case_for_head(subject_tokens, subject_tokens_lower, subject.lower())
                 if subject_case:
                     subject = subject_case
 
@@ -289,38 +343,6 @@ def parse_utterance(text: str) -> ParsedUtterance:
                 attributes=subject_modifiers,
                 raw=raw,
             )
-
-    if tokens[0] == "there" and len(tokens) > 2 and tokens[1] in {"is", "are"}:
-        remainder = tokens_case[2:]
-        remainder_lower = tokens[2:]
-        relation = None
-        if any(token in PREPOSITIONS for token in remainder_lower):
-            for idx, token in enumerate(remainder_lower):
-                if token in PREPOSITIONS:
-                    relation = token
-                    subject_tokens = remainder[:idx]
-                    object_tokens = remainder[idx + 1 :]
-                    subject, attributes = _head_and_modifiers([t.lower() for t in subject_tokens])
-                    obj, _ = _head_and_modifiers([t.lower() for t in object_tokens])
-                    subject_case = _join(subject_tokens).strip()
-                    obj_case = _join(object_tokens).strip()
-                    if subject_case and subject_case.lower() != subject:
-                        subject = subject_case
-                    if obj_case and obj_case.lower() != obj:
-                        obj = obj_case
-                    relations = [(relation, obj)] if obj else []
-                    return ParsedUtterance(
-                        kind="statement",
-                        subject=subject,
-                        attributes=attributes,
-                        relations=relations,
-                        raw=raw,
-                    )
-        subject, attributes = _head_and_modifiers([t.lower() for t in remainder])
-        subject_case = _join(remainder).strip()
-        if subject_case and subject_case.lower() != subject:
-            subject = subject_case
-        return ParsedUtterance(kind="statement", subject=subject, attributes=attributes, raw=raw)
 
     if "has" in tokens or "have" in tokens:
         verb = "has" if "has" in tokens else "have"

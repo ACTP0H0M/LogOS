@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from .knowledge import KnowledgeBase
+from .classical_nlp import ClassicalNLP
+from .classical_interpret import interpret as interpret_classical
 from .memory_store import EpisodicMemory, MemoryStore, ProceduralMemory
 from .nlp import ParsedUtterance, parse_utterance, tokenize
 from .reasoner import Reasoner
@@ -27,8 +29,11 @@ class ChatEngine:
         self._knowledge, self._episodic, self._procedural = self._store.load()
         self._state = ConversationState()
         self._reasoner = Reasoner(self._knowledge, self._episodic, self._procedural, self._state)
+        self._nlp = ClassicalNLP()
 
     def process(self, message: str) -> ChatResponse:
+        analysis = self._nlp.analyze(message)
+        parse_payload = analysis.to_dict() if analysis else None
         reply = ""
         if self._state.pending_clarifications:
             clarification = self._state.next_clarification()
@@ -37,13 +42,15 @@ class ChatEngine:
             else:
                 reply = self._handle_clarification(message)
         else:
-            utterance = parse_utterance(message)
+            utterance = interpret_classical(message, analysis) if analysis else None
+            if utterance is None:
+                utterance = parse_utterance(message)
             if utterance.kind == "correction":
                 reply = self._handle_correction_request(message)
             elif utterance.kind == "definition":
-                reply = self._learn_definition(utterance)
+                reply = self._learn_definition(utterance, parse_payload=parse_payload)
             elif utterance.kind == "statement":
-                reply = self._learn_statement(utterance)
+                reply = self._learn_statement(utterance, parse_payload=parse_payload)
             elif utterance.kind == "query":
                 resolved = self._resolve_query_subject(utterance.subject)
                 reply = self._reasoner.respond_to_query(resolved)
@@ -53,7 +60,7 @@ class ChatEngine:
         self._store.save(self._knowledge, self._episodic, self._procedural)
         return ChatResponse(reply=reply, facts=self._facts_snapshot())
 
-    def _learn_statement(self, utterance: ParsedUtterance) -> str:
+    def _learn_statement(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
         subject = self._resolve_pronoun(utterance.subject)
         if not subject:
             return "I could not find a subject in that statement."
@@ -69,7 +76,7 @@ class ChatEngine:
                     self._knowledge.ensure_symbol(name_value, kind="entity")
                     link = self._knowledge.add_relation(possessor, "name", name_value, generality=0.8, actuality=0.95)
                     created_links.append(link.id)
-                    self._episodic.add_event(utterance.raw, created_links, new_symbol_ids)
+                    self._episodic.add_event(utterance.raw, created_links, new_symbol_ids, parse=parse_payload)
                     self._state.last_added_links = list(created_links)
                     self._state.last_utterance = utterance.raw
                     return f"Okay, I'll remember that {possessor} name is {name_value}."
@@ -81,8 +88,8 @@ class ChatEngine:
             new_symbol_ids.append(subject_symbol.id)
         self._state.remember_topic(subject)
 
-        unknowns = self._collect_unknowns(subject, utterance, new_symbol_ids, created_links)
-        self._episodic.add_event(utterance.raw, created_links, new_symbol_ids)
+        unknowns = self._collect_unknowns(subject, utterance, new_symbol_ids, created_links, parse_payload=parse_payload)
+        self._episodic.add_event(utterance.raw, created_links, new_symbol_ids, parse=parse_payload)
         self._state.last_added_links = list(created_links)
         self._state.last_utterance = utterance.raw
         self._knowledge.decay_links(rate=0.01)
@@ -101,21 +108,17 @@ class ChatEngine:
         utterance: ParsedUtterance,
         new_symbol_ids: List[int],
         created_links: List[int],
+        parse_payload: Optional[Dict[str, object]] = None,
     ) -> List[Clarification]:
         unknowns: List[Clarification] = []
 
         for attr in utterance.attributes:
             attr_symbol = self._knowledge.symbol_by_name(attr)
             if not attr_symbol:
-                attr_symbol = self._knowledge.ensure_symbol(attr)
+                # Adjectival modifiers are reliably "property"-like in English.
+                inferred = self._infer_kind_from_parse(attr, parse_payload) or "property"
+                attr_symbol = self._knowledge.ensure_symbol(attr, kind=inferred)
                 new_symbol_ids.append(attr_symbol.id)
-                unknowns.append(
-                    Clarification(
-                        term=attr,
-                        role="property",
-                        context=f"{subject} has_property {attr}",
-                    )
-                )
                 link = self._knowledge.add_property(subject, attr, generality=0.1, actuality=0.4)
             else:
                 link = self._knowledge.add_property(subject, attr, generality=0.4, actuality=0.9)
@@ -129,15 +132,10 @@ class ChatEngine:
                 created_links.append(link.id)
             else:
                 if not obj_symbol and obj:
-                    obj_symbol = self._knowledge.ensure_symbol(obj, kind="property")
+                    # Copular predicate without an article is often a descriptor.
+                    inferred = self._infer_kind_from_parse(obj, parse_payload) or "property"
+                    obj_symbol = self._knowledge.ensure_symbol(obj, kind=inferred)
                     new_symbol_ids.append(obj_symbol.id)
-                    unknowns.append(
-                        Clarification(
-                            term=obj,
-                            role="property",
-                            context=f"{subject} is {obj}",
-                        )
-                    )
                     link = self._knowledge.add_is(subject, obj, generality=0.1, actuality=0.4)
                 else:
                     link = self._knowledge.add_is(subject, obj, generality=0.4, actuality=0.9)
@@ -149,15 +147,11 @@ class ChatEngine:
             rel = self._normalize_relation(relation)
             obj_symbol = self._knowledge.symbol_by_name(obj)
             if not obj_symbol:
-                obj_symbol = self._knowledge.ensure_symbol(obj, kind="entity")
+                # For many relations (esp. location), the object type is predictable.
+                inferred = self._infer_kind_for_relation_object(rel)
+                inferred = inferred or self._infer_kind_from_parse(obj, parse_payload) or "entity"
+                obj_symbol = self._knowledge.ensure_symbol(obj, kind=inferred)
                 new_symbol_ids.append(obj_symbol.id)
-                unknowns.append(
-                    Clarification(
-                        term=obj,
-                        role="entity",
-                        context=f"{subject} {rel} {obj}",
-                    )
-                )
                 link = self._knowledge.add_relation(subject, rel, obj, generality=0.1, actuality=0.4)
             else:
                 link = self._knowledge.add_relation(subject, rel, obj, generality=0.4, actuality=0.9)
@@ -165,7 +159,7 @@ class ChatEngine:
 
         return unknowns
 
-    def _learn_definition(self, utterance: ParsedUtterance) -> str:
+    def _learn_definition(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
         subject = self._resolve_pronoun(utterance.subject)
         obj = self._resolve_pronoun(utterance.obj)
         if not subject or not obj:
@@ -188,9 +182,9 @@ class ChatEngine:
             relations=utterance.relations,
             raw=utterance.raw,
         )
-        unknowns = self._collect_unknowns(subject, extra, new_symbol_ids, created_links)
+        unknowns = self._collect_unknowns(subject, extra, new_symbol_ids, created_links, parse_payload=parse_payload)
 
-        self._episodic.add_event(utterance.raw, created_links, new_symbol_ids)
+        self._episodic.add_event(utterance.raw, created_links, new_symbol_ids, parse=parse_payload)
         self._state.last_added_links = list(created_links)
         self._state.last_utterance = utterance.raw
         if unknowns:
@@ -333,6 +327,35 @@ class ChatEngine:
         if lowered.startswith("our "):
             return "#USER", subject[4:].strip()
         return None, None
+
+    def _infer_kind_for_relation_object(self, relation: str) -> Optional[str]:
+        if relation in {"where_loc", "where_dir"}:
+            return "location"
+        if relation in {"when"}:
+            return "time"
+        return None
+
+    def _infer_kind_from_parse(self, term: str, parse_payload: Optional[Dict[str, object]]) -> Optional[str]:
+        if not parse_payload:
+            return None
+        term_lower = term.lower()
+        for sent in parse_payload.get("sentences", []) or []:
+            for tok in sent.get("tokens", []) or []:
+                text = str(tok.get("text", "")).strip()
+                if text.lower() != term_lower:
+                    continue
+                upos = str(tok.get("upos", "")).upper()
+                if upos in {"NOUN", "PROPN", "PRON"}:
+                    return "entity"
+                if upos in {"ADJ"}:
+                    return "property"
+                if upos in {"VERB", "AUX"}:
+                    return "action"
+                if upos in {"ADV"}:
+                    return "property"
+                if upos in {"NUM"}:
+                    return "entity"
+        return None
 
     def _acknowledge_statement(self, subject: str, utterance: ParsedUtterance) -> str:
         pieces = []

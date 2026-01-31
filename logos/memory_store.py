@@ -16,6 +16,7 @@ class EpisodicEvent:
     text: str
     link_ids: List[int] = field(default_factory=list)
     new_symbol_ids: List[int] = field(default_factory=list)
+    parse: Optional[Dict[str, object]] = None
 
 
 @dataclass
@@ -23,13 +24,20 @@ class EpisodicMemory:
     events: List[EpisodicEvent] = field(default_factory=list)
     _next_event_id: int = 0
 
-    def add_event(self, text: str, link_ids: List[int], new_symbol_ids: List[int]) -> EpisodicEvent:
+    def add_event(
+        self,
+        text: str,
+        link_ids: List[int],
+        new_symbol_ids: List[int],
+        parse: Optional[Dict[str, object]] = None,
+    ) -> EpisodicEvent:
         event = EpisodicEvent(
             id=self._next_event_id,
             timestamp=datetime.utcnow().isoformat(timespec="seconds") + "Z",
             text=text,
             link_ids=list(link_ids),
             new_symbol_ids=list(new_symbol_ids),
+            parse=parse,
         )
         self._next_event_id += 1
         self.events.append(event)
@@ -44,6 +52,7 @@ class EpisodicMemory:
                     "text": ev.text,
                     "link_ids": list(ev.link_ids),
                     "new_symbol_ids": list(ev.new_symbol_ids),
+                    "parse": ev.parse,
                 }
                 for ev in self.events
             ],
@@ -60,6 +69,7 @@ class EpisodicMemory:
                 text=ev.get("text", ""),
                 link_ids=list(ev.get("link_ids", [])),
                 new_symbol_ids=list(ev.get("new_symbol_ids", [])),
+                parse=ev.get("parse"),
             )
             for ev in payload.get("events", [])
         ]
@@ -171,4 +181,3 @@ class MemoryStore:
 
     def _write_json(self, path: Path, payload: Dict[str, object]) -> None:
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
-

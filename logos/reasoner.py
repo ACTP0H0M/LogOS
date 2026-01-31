@@ -25,6 +25,8 @@ class Reasoner:
     def respond_to_query(self, subject: str) -> str:
         if not subject:
             return "What would you like to know?"
+        if subject == "__meta__":
+            return self._describe_memory()
         owner, attribute = self._parse_possessive_query(subject)
         if owner and attribute:
             return self._describe_possessive(owner, attribute)
@@ -100,10 +102,18 @@ class Reasoner:
             return "my"
         return "your"
 
+    def _describe_memory(self) -> str:
+        recent = self._knowledge.recent_links(limit=8)
+        if not recent:
+            return "I do not know anything yet."
+        lines = [self._knowledge.link_sentence(link) for link in recent]
+        joined = "; ".join(lines)
+        return f"Here are some recent things I learned: {joined}"
+
     def pending_clarification_prompt(self, clarification: Clarification) -> str:
-        base = f"I don't know what '{clarification.term}' is yet."
+        base = f"I don't know what '{clarification.term}' means yet."
         context = f" You used it in: {clarification.context}."
-        hint = " Is it a property, an entity, or an action?"
+        hint = " Can you define it (e.g., \"X is a kind of Y\"), or give a short example?"
         return base + context + hint
 
     def small_talk(self) -> str:

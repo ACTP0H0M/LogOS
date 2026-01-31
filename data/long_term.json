@@ -411,6 +411,41 @@
       "kind": "entity",
       "description": "",
       "aliases": []
+    },
+    {
+      "id": 58,
+      "name": "pen",
+      "kind": "entity",
+      "description": "",
+      "aliases": []
+    },
+    {
+      "id": 59,
+      "name": "desk",
+      "kind": "entity",
+      "description": "",
+      "aliases": []
+    },
+    {
+      "id": 60,
+      "name": "computer",
+      "kind": "entity",
+      "description": "",
+      "aliases": []
+    },
+    {
+      "id": 61,
+      "name": "lamp",
+      "kind": "entity",
+      "description": "",
+      "aliases": []
+    },
+    {
+      "id": 62,
+      "name": "also",
+      "kind": "property",
+      "description": "",
+      "aliases": []
     }
   ],
   "links": [
@@ -420,7 +455,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -429,7 +464,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -438,7 +473,7 @@
       "target": 5,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -447,7 +482,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -456,7 +491,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -465,7 +500,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -474,7 +509,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -483,7 +518,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -492,7 +527,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -501,7 +536,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -510,7 +545,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -519,7 +554,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -528,7 +563,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -537,7 +572,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -546,7 +581,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -555,7 +590,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -564,7 +599,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -573,7 +608,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -582,7 +617,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -591,7 +626,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -600,7 +635,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -609,7 +644,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -618,7 +653,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -627,7 +662,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -636,7 +671,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -645,7 +680,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -654,7 +689,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -663,7 +698,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -672,7 +707,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -681,7 +716,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -690,7 +725,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -699,7 +734,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -708,7 +743,7 @@
       "target": 3,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -717,7 +752,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -726,7 +761,7 @@
       "target": 41,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -735,7 +770,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -744,7 +779,7 @@
       "target": 1,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -753,7 +788,7 @@
       "target": 43,
       "relation": "has_property",
       "generality": 0.1,
-      "actuality": 0.35,
+      "actuality": 0.30999999999999994,
       "evidence": []
     },
     {
@@ -762,7 +797,7 @@
       "target": 1,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -771,7 +806,7 @@
       "target": 44,
       "relation": "has_property",
       "generality": 0.1,
-      "actuality": 0.35,
+      "actuality": 0.30999999999999994,
       "evidence": []
     },
     {
@@ -780,7 +815,7 @@
       "target": 1,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -789,7 +824,7 @@
       "target": 45,
       "relation": "has_property",
       "generality": 0.1,
-      "actuality": 0.35,
+      "actuality": 0.30999999999999994,
       "evidence": []
     },
     {
@@ -798,7 +833,7 @@
       "target": 1,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -807,7 +842,7 @@
       "target": 46,
       "relation": "is",
       "generality": 0.1,
-      "actuality": 0.35,
+      "actuality": 0.30999999999999994,
       "evidence": []
     },
     {
@@ -816,7 +851,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -825,7 +860,7 @@
       "target": 47,
       "relation": "has_property",
       "generality": 0.1,
-      "actuality": 0.35,
+      "actuality": 0.30999999999999994,
       "evidence": []
     },
     {
@@ -834,7 +869,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.95,
+      "actuality": 0.9099999999999999,
       "evidence": []
     },
     {
@@ -843,7 +878,7 @@
       "target": 48,
       "relation": "has_property",
       "generality": 0.1,
-      "actuality": 0.35,
+      "actuality": 0.30999999999999994,
       "evidence": []
     },
     {
@@ -852,7 +887,7 @@
       "target": 49,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.96,
+      "actuality": 0.9199999999999999,
       "evidence": []
     },
     {
@@ -861,7 +896,7 @@
       "target": 50,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.96,
+      "actuality": 0.9199999999999999,
       "evidence": []
     },
     {
@@ -870,7 +905,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.96,
+      "actuality": 0.9199999999999999,
       "evidence": []
     },
     {
@@ -879,7 +914,7 @@
       "target": 51,
       "relation": "where_loc",
       "generality": 0.1,
-      "actuality": 0.36,
+      "actuality": 0.31999999999999995,
       "evidence": []
     },
     {
@@ -888,7 +923,7 @@
       "target": 52,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.96,
+      "actuality": 0.9199999999999999,
       "evidence": []
     },
     {
@@ -897,7 +932,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.96,
+      "actuality": 0.9199999999999999,
       "evidence": []
     },
     {
@@ -906,7 +941,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.96,
+      "actuality": 0.9199999999999999,
       "evidence": []
     },
     {
@@ -915,7 +950,7 @@
       "target": 54,
       "relation": "where_loc",
       "generality": 0.1,
-      "actuality": 0.36,
+      "actuality": 0.31999999999999995,
       "evidence": []
     },
     {
@@ -924,7 +959,7 @@
       "target": 52,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.97,
+      "actuality": 0.9299999999999999,
       "evidence": []
     },
     {
@@ -933,7 +968,7 @@
       "target": 55,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.97,
+      "actuality": 0.9299999999999999,
       "evidence": []
     },
     {
@@ -942,7 +977,7 @@
       "target": 7,
       "relation": "is",
       "generality": 0.4,
-      "actuality": 0.87,
+      "actuality": 0.83,
       "evidence": []
     },
     {
@@ -951,7 +986,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.98,
+      "actuality": 0.94,
       "evidence": []
     },
     {
@@ -960,7 +995,7 @@
       "target": 7,
       "relation": "is",
       "generality": 0.4,
-      "actuality": 0.88,
+      "actuality": 0.84,
       "evidence": []
     },
     {
@@ -969,7 +1004,7 @@
       "target": 1,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 0.99,
+      "actuality": 0.95,
       "evidence": []
     },
     {
@@ -978,7 +1013,7 @@
       "target": 57,
       "relation": "is",
       "generality": 0.1,
-      "actuality": 0.39,
+      "actuality": 0.35,
       "evidence": []
     },
     {
@@ -987,7 +1022,7 @@
       "target": 0,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 1.0,
+      "actuality": 0.96,
       "evidence": []
     },
     {
@@ -996,14 +1031,113 @@
       "target": 52,
       "relation": "is_a",
       "generality": 1.0,
-      "actuality": 1.0,
+      "actuality": 0.96,
+      "evidence": []
+    },
+    {
+      "id": 65,
+      "source": 58,
+      "target": 0,
+      "relation": "is_a",
+      "generality": 1.0,
+      "actuality": 0.96,
+      "evidence": []
+    },
+    {
+      "id": 66,
+      "source": 59,
+      "target": 0,
+      "relation": "is_a",
+      "generality": 1.0,
+      "actuality": 0.96,
+      "evidence": []
+    },
+    {
+      "id": 67,
+      "source": 58,
+      "target": 59,
+      "relation": "where_loc",
+      "generality": 0.1,
+      "actuality": 0.36,
+      "evidence": []
+    },
+    {
+      "id": 68,
+      "source": 59,
+      "target": 52,
+      "relation": "is_a",
+      "generality": 1.0,
+      "actuality": 0.97,
+      "evidence": []
+    },
+    {
+      "id": 69,
+      "source": 60,
+      "target": 0,
+      "relation": "is_a",
+      "generality": 1.0,
+      "actuality": 0.97,
+      "evidence": []
+    },
+    {
+      "id": 70,
+      "source": 60,
+      "target": 59,
+      "relation": "where_loc",
+      "generality": 0.4,
+      "actuality": 0.87,
+      "evidence": []
+    },
+    {
+      "id": 71,
+      "source": 58,
+      "target": 59,
+      "relation": "where_loc",
+      "generality": 0.4,
+      "actuality": 0.88,
+      "evidence": []
+    },
+    {
+      "id": 72,
+      "source": 61,
+      "target": 0,
+      "relation": "is_a",
+      "generality": 1.0,
+      "actuality": 0.99,
+      "evidence": []
+    },
+    {
+      "id": 73,
+      "source": 62,
+      "target": 1,
+      "relation": "is_a",
+      "generality": 1.0,
+      "actuality": 0.99,
+      "evidence": []
+    },
+    {
+      "id": 74,
+      "source": 61,
+      "target": 62,
+      "relation": "has_property",
+      "generality": 0.1,
+      "actuality": 0.39,
+      "evidence": []
+    },
+    {
+      "id": 75,
+      "source": 61,
+      "target": 59,
+      "relation": "where_loc",
+      "generality": 0.4,
+      "actuality": 0.89,
       "evidence": []
     }
   ],
   "branches": [],
   "metadata": {
-    "next_symbol_id": 58,
-    "next_link_id": 65,
+    "next_symbol_id": 63,
+    "next_link_id": 76,
     "next_branch_id": 0
   }
 }
