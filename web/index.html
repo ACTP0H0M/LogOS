@@ -8,30 +8,57 @@
   </head>
   <body>
     <main class="app">
-      <header>
-        <h1>LogOS</h1>
-        <p>Symbolic, resource-efficient conversational reasoning.</p>
-      </header>
+      <section class="pane left">
+        <header class="brand">
+          <h1>LogOS</h1>
+          <p>Symbolic, resource-efficient conversational reasoning.</p>
+        </header>
 
-      <section class="chat" id="chat"></section>
+        <section class="chat" id="chat"></section>
 
-      <form class="composer" id="composer">
-        <input
-          type="text"
-          name="message"
-          id="message"
-          placeholder="Say something about yourself or ask a question..."
-          autocomplete="off"
-          required
-        />
-        <button type="submit">Send</button>
-      </form>
+        <form class="composer" id="composer">
+          <input
+            type="text"
+            name="message"
+            id="message"
+            placeholder="Say something about yourself or ask a question..."
+            autocomplete="off"
+            required
+          />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <section class="pane right">
+        <header class="graph-head">
+          <h2>Knowledge Graph</h2>
+          <p class="graph-sub">Updates after each message. Click nodes to inspect connections.</p>
+        </header>
+
+        <div class="graph-wrap">
+          <canvas class="graph-canvas" id="graphCanvas"></canvas>
+          <div class="graph-inspector" id="graphInspector">
+            <div class="graph-empty">
+              Send a message to build the graph.
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <script>
       const chat = document.getElementById("chat");
       const composer = document.getElementById("composer");
       const messageInput = document.getElementById("message");
+
+      const canvas = document.getElementById("graphCanvas");
+      const inspector = document.getElementById("graphInspector");
+      const ctx = canvas.getContext("2d");
+
+      let graph = { nodes: [], links: [] };
+      let layout = { nodes: [], links: [] };
+      let selectedNodeId = null;
+      let animHandle = null;
 
       const appendBubble = (text, type) => {
         const bubble = document.createElement("div");
@@ -42,6 +69,211 @@
       };
 
       appendBubble("Hi! Tell me about yourself or ask what I know.", "bot");
+
+      const resizeCanvas = () => {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+        canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      };
+
+      const buildLayout = (g) => {
+        const rect = canvas.getBoundingClientRect();
+        const w = Math.max(1, rect.width);
+        const h = Math.max(1, rect.height);
+        const nodes = g.nodes.map((n) => ({
+          ...n,
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: 0,
+          vy: 0,
+        }));
+        const byId = new Map(nodes.map((n) => [n.id, n]));
+        const links = g.links
+          .map((l) => ({
+            ...l,
+            sourceNode: byId.get(l.source),
+            targetNode: byId.get(l.target),
+          }))
+          .filter((l) => l.sourceNode && l.targetNode);
+
+        return { nodes, links };
+      };
+
+      const tick = () => {
+        const rect = canvas.getBoundingClientRect();
+        const w = Math.max(1, rect.width);
+        const h = Math.max(1, rect.height);
+        const nodes = layout.nodes;
+        const links = layout.links;
+
+        const centerPull = 0.0025;
+        const repel = 2600;
+        const linkK = 0.012;
+        const targetLen = 110;
+        const damping = 0.86;
+
+        for (let i = 0; i < nodes.length; i++) {
+          const a = nodes[i];
+          for (let j = i + 1; j < nodes.length; j++) {
+            const b = nodes[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const d2 = dx * dx + dy * dy + 0.01;
+            const f = repel / d2;
+            const fx = (dx / Math.sqrt(d2)) * f;
+            const fy = (dy / Math.sqrt(d2)) * f;
+            a.vx += fx;
+            a.vy += fy;
+            b.vx -= fx;
+            b.vy -= fy;
+          }
+        }
+
+        for (const l of links) {
+          const a = l.sourceNode;
+          const b = l.targetNode;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
+          const diff = d - targetLen;
+          const f = linkK * diff;
+          const fx = (dx / d) * f;
+          const fy = (dy / d) * f;
+          a.vx += fx;
+          a.vy += fy;
+          b.vx -= fx;
+          b.vy -= fy;
+        }
+
+        for (const n of nodes) {
+          const cx = w / 2;
+          const cy = h / 2;
+          n.vx += (cx - n.x) * centerPull;
+          n.vy += (cy - n.y) * centerPull;
+
+          n.vx *= damping;
+          n.vy *= damping;
+          n.x += n.vx;
+          n.y += n.vy;
+
+          n.x = Math.max(20, Math.min(w - 20, n.x));
+          n.y = Math.max(20, Math.min(h - 20, n.y));
+        }
+
+        draw();
+        animHandle = window.requestAnimationFrame(tick);
+      };
+
+      const draw = () => {
+        const rect = canvas.getBoundingClientRect();
+        const w = Math.max(1, rect.width);
+        const h = Math.max(1, rect.height);
+        ctx.clearRect(0, 0, w, h);
+
+        ctx.lineWidth = 1;
+        for (const l of layout.links) {
+          const highlight =
+            selectedNodeId !== null &&
+            (l.source === selectedNodeId || l.target === selectedNodeId);
+          ctx.strokeStyle = highlight ? "rgba(56,189,248,0.75)" : "rgba(148,163,184,0.22)";
+          ctx.beginPath();
+          ctx.moveTo(l.sourceNode.x, l.sourceNode.y);
+          ctx.lineTo(l.targetNode.x, l.targetNode.y);
+          ctx.stroke();
+        }
+
+        for (const n of layout.nodes) {
+          const isSelected = selectedNodeId === n.id;
+          ctx.fillStyle = isSelected ? "#38bdf8" : "#1f2937";
+          ctx.strokeStyle = isSelected ? "rgba(56,189,248,0.8)" : "rgba(148,163,184,0.35)";
+          ctx.lineWidth = isSelected ? 2 : 1;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, isSelected ? 9 : 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = "rgba(226,232,240,0.9)";
+          ctx.font = "12px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
+          ctx.fillText(n.label, n.x + 10, n.y + 4);
+        }
+      };
+
+      const nodeAt = (x, y) => {
+        for (const n of layout.nodes) {
+          const dx = x - n.x;
+          const dy = y - n.y;
+          if (dx * dx + dy * dy <= 10 * 10) return n;
+        }
+        return null;
+      };
+
+      const renderInspector = () => {
+        if (!graph.nodes.length) return;
+        const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+
+        if (selectedNodeId === null) {
+          inspector.innerHTML = `
+            <div class="graph-empty">
+              Click a node to inspect it.
+            </div>
+          `;
+          return;
+        }
+
+        const node = byId.get(selectedNodeId);
+        const links = graph.links.filter(
+          (l) => l.source === selectedNodeId || l.target === selectedNodeId
+        );
+
+        const rows = links
+          .slice(0, 60)
+          .map((l) => {
+            const s = byId.get(l.source)?.label ?? l.source;
+            const t = byId.get(l.target)?.label ?? l.target;
+            return `<div class="edge-row">
+              <span class="edge-st">${s}</span>
+              <span class="edge-rel">${l.relation}</span>
+              <span class="edge-st">${t}</span>
+              <span class="edge-meta">g=${Number(l.generality).toFixed(2)} a=${Number(l.actuality).toFixed(2)}</span>
+            </div>`;
+          })
+          .join("");
+
+        inspector.innerHTML = `
+          <div class="node-card">
+            <div class="node-title">${node?.label ?? selectedNodeId}</div>
+            <div class="node-sub">kind: ${node?.kind ?? "unknown"} · connections: ${links.length}</div>
+          </div>
+          <div class="edge-list">${rows || '<div class="graph-empty">No edges.</div>'}</div>
+        `;
+      };
+
+      const updateGraph = (g) => {
+        graph = g || { nodes: [], links: [] };
+        selectedNodeId = null;
+        resizeCanvas();
+        layout = buildLayout(graph);
+        renderInspector();
+        if (animHandle) window.cancelAnimationFrame(animHandle);
+        animHandle = window.requestAnimationFrame(tick);
+      };
+
+      window.addEventListener("resize", () => {
+        resizeCanvas();
+        draw();
+      });
+
+      canvas.addEventListener("click", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const n = nodeAt(x, y);
+        selectedNodeId = n ? n.id : null;
+        renderInspector();
+        draw();
+      });
 
       composer.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -57,6 +289,7 @@
         });
         const data = await response.json();
         appendBubble(data.reply, "bot");
+        updateGraph(data.graph);
       });
     </script>
   </body>

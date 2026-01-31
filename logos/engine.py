@@ -17,6 +17,7 @@ from .state import Clarification, ConversationState
 class ChatResponse:
     reply: str
     facts: Dict[str, str]
+    graph: Dict[str, object]
 
 
 class ChatEngine:
@@ -58,7 +59,7 @@ class ChatEngine:
                 reply = self._reasoner.small_talk()
 
         self._store.save(self._knowledge, self._episodic, self._procedural)
-        return ChatResponse(reply=reply, facts=self._facts_snapshot())
+        return ChatResponse(reply=reply, facts=self._facts_snapshot(), graph=self._graph_snapshot())
 
     def _learn_statement(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
         subject = self._resolve_pronoun(utterance.subject)
@@ -376,6 +377,35 @@ class ChatEngine:
         for index, link in enumerate(recent_links):
             snapshot[f"fact:{index}"] = self._knowledge.link_sentence(link)
         return snapshot
+
+    def _graph_snapshot(self, max_links: int = 120, max_nodes: int = 80) -> Dict[str, object]:
+        # Keep the browser-side visualization cheap by sending a recent subgraph.
+        links = self._knowledge.recent_links(limit=max_links)
+        node_ids = set()
+        for lk in links:
+            node_ids.add(lk.source)
+            node_ids.add(lk.target)
+        node_ids = list(node_ids)[:max_nodes]
+        node_id_set = set(node_ids)
+        link_payload = [
+            {
+                "id": lk.id,
+                "source": lk.source,
+                "target": lk.target,
+                "relation": lk.relation,
+                "generality": lk.generality,
+                "actuality": lk.actuality,
+            }
+            for lk in links
+            if lk.source in node_id_set and lk.target in node_id_set
+        ]
+        node_payload = []
+        for node_id in node_ids:
+            sym = self._knowledge.symbol_by_id(node_id)
+            if not sym:
+                continue
+            node_payload.append({"id": sym.id, "label": sym.name, "kind": sym.kind})
+        return {"nodes": node_payload, "links": link_payload}
 
     def _match_links_for_correction(self, link_ids: List[int], message: str) -> List[int]:
         tokens = set(tokenize(message))
