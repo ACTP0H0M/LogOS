@@ -39,6 +39,16 @@ Open <http://localhost:8000> in your browser.
 - The chat loop is designed to stay cheap: tokenization, heuristics, and symbolic memory are enough for many conversational goals.
 - You can integrate deeper NLP or embeddings later, but only where symbolic reasoning fails.
 
+## Persistent memory
+
+The Python rewrite now persists symbolic knowledge across runs:
+
+- `data/long_term.json` stores the ontology + hypergraph (logos, links, branches).
+- `data/episodic.json` stores interaction episodes with extracted facts.
+- `data/procedural.json` stores simple procedural rules.
+
+On first run, the system seeds the long-term memory from `logos.txt`, `links.txt`, and `branches.txt` if they exist.
+
 ## Legacy code
 
 The original Java prototype lives under `src/` and remains available for reference. The rewrite lives in the top-level `app/`, `logos/`, and `web/` folders.
