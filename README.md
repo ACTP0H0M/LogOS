@@ -21,19 +21,6 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 Open <http://localhost:8000> in your browser.
 
-## Optional: classical NLP (StanfordNLP / Stanza)
-
-LogOS can optionally attach a classical NLP frontend (POS + dependency tree + constituency tree) using `stanza`.
-
-Install:
-
-```bash
-pip install -r requirements-nlp.txt
-python -c "import stanza; stanza.download('en')"
-```
-
-When the models are present, LogOS will automatically store parse trees for each remembered user statement in `data/episodic.json`.
-
 ## Module map (rewrite)
 
 | Module | Purpose |

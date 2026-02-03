@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from .knowledge import KnowledgeBase
-from .classical_nlp import ClassicalNLP
-from .classical_interpret import interpret as interpret_classical
 from .memory_store import EpisodicMemory, MemoryStore, ProceduralMemory
 from .nlp import ParsedUtterance, parse_utterance, tokenize
 from .reasoner import Reasoner
@@ -28,13 +26,11 @@ class ChatEngine:
         data_dir = base_dir / "data"
         self._store = MemoryStore(data_dir, legacy_dir=base_dir)
         self._knowledge, self._episodic, self._procedural = self._store.load()
+        self._save_current_session = False
         self._state = ConversationState()
         self._reasoner = Reasoner(self._knowledge, self._episodic, self._procedural, self._state)
-        self._nlp = ClassicalNLP()
 
     def process(self, message: str) -> ChatResponse:
-        analysis = self._nlp.analyze(message)
-        parse_payload = analysis.to_dict() if analysis else None
         reply = ""
         if self._state.pending_clarifications:
             clarification = self._state.next_clarification()
@@ -43,22 +39,22 @@ class ChatEngine:
             else:
                 reply = self._handle_clarification(message)
         else:
-            utterance = interpret_classical(message, analysis) if analysis else None
-            if utterance is None:
-                utterance = parse_utterance(message)
+            utterance = parse_utterance(message)
             if utterance.kind == "correction":
                 reply = self._handle_correction_request(message)
             elif utterance.kind == "definition":
-                reply = self._learn_definition(utterance, parse_payload=parse_payload)
+                reply = self._learn_definition(utterance)
             elif utterance.kind == "statement":
-                reply = self._learn_statement(utterance, parse_payload=parse_payload)
+                reply = self._learn_statement(utterance)
             elif utterance.kind == "query":
                 resolved = self._resolve_query_subject(utterance.subject)
                 reply = self._reasoner.respond_to_query(resolved)
             else:
                 reply = self._reasoner.small_talk()
 
-        self._store.save(self._knowledge, self._episodic, self._procedural)
+        if self._save_current_session:
+            self._store.save(self._knowledge, self._episodic, self._procedural)
+
         return ChatResponse(reply=reply, facts=self._facts_snapshot(), graph=self._graph_snapshot())
 
     def _learn_statement(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
