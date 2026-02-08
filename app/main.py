@@ -30,4 +30,4 @@ def index() -> HTMLResponse:
 @app.post("/api/chat")
 def chat(request: ChatRequest) -> dict:
     response = engine.process(request.message)
-    return {"reply": response.reply, "facts": response.facts, "graph": response.graph}
+    return {"reply": response.reply, "facts": response.facts, "links": response.links}

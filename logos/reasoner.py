@@ -70,8 +70,7 @@ class Reasoner:
         return " | ".join(buckets)
 
     def _link_target_name(self, link: Link) -> str:
-        target = self._knowledge.symbol_by_id(link.target)
-        return target.name if target else "something"
+        return self._knowledge.node_label(link.target, wrap_branch=True)
 
     def _parse_possessive_query(self, subject: str) -> Tuple[Optional[str], Optional[str]]:
         lowered = subject.strip().lower()

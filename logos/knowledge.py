@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -26,6 +27,7 @@ class Link:
     relation: str
     generality: float = 0.0
     actuality: float = 1.0
+    created_at: str = ""
     evidence: List[int] = field(default_factory=list)
 
 
@@ -54,6 +56,22 @@ class KnowledgeBase:
         self._ensure_base_categories()
         self._ensure_special_symbols()
         self._ensure_relation_ontology()
+
+    @staticmethod
+    def _encode_branch_id(branch_id: int) -> int:
+        return -1 - branch_id
+
+    @staticmethod
+    def _decode_branch_id(node_id: int) -> Optional[int]:
+        if node_id < 0:
+            return -1 - node_id
+        return None
+
+    def branch_node_id(self, branch_id: int) -> int:
+        return self._encode_branch_id(branch_id)
+
+    def is_branch_node(self, node_id: int) -> bool:
+        return node_id < 0
 
     def _ensure_base_categories(self) -> None:
         for name in ("#ENTITY", "#PROPERTY", "#VERB", "#RELATION", "#LOCATION", "#TIME", "#STATE"):
@@ -181,6 +199,7 @@ class KnowledgeBase:
         relation: str,
         generality: float = 0.0,
         actuality: float = 1.0,
+        created_at: Optional[str] = None,
         evidence: Optional[List[int]] = None,
         link_id: Optional[int] = None,
     ) -> Link:
@@ -189,6 +208,7 @@ class KnowledgeBase:
             self._next_link_id += 1
         else:
             self._next_link_id = max(self._next_link_id, link_id + 1)
+        timestamp = created_at or datetime.utcnow().isoformat(timespec="seconds") + "Z"
         link = Link(
             id=link_id,
             source=source_id,
@@ -196,6 +216,7 @@ class KnowledgeBase:
             relation=relation,
             generality=generality,
             actuality=actuality,
+            created_at=timestamp,
             evidence=list(evidence or []),
         )
         self._links_by_id[link.id] = link
@@ -212,6 +233,34 @@ class KnowledgeBase:
         branch = Branch(id=branch_id, logos=list(logos), links=list(links))
         self._branches_by_id[branch.id] = branch
         return branch
+
+    def add_prep_branch(
+        self,
+        obj_id: int,
+        prep_id: int,
+        generality: float = 0.2,
+        actuality: float = 1.0,
+    ) -> Tuple[Branch, Link]:
+        prep_link = self.add_link(obj_id, prep_id, "prep", generality=generality, actuality=actuality)
+        branch = self.add_branch([obj_id, prep_id], [prep_link.id])
+        return branch, prep_link
+
+    def add_relation_to_branch(
+        self,
+        subject: str,
+        relation: str,
+        branch_id: int,
+        generality: float = 0.2,
+        actuality: float = 1.0,
+    ) -> Link:
+        subject_symbol = self.ensure_symbol(subject, kind="entity")
+        return self.add_link(
+            subject_symbol.id,
+            self.branch_node_id(branch_id),
+            relation,
+            generality=generality,
+            actuality=actuality,
+        )
 
     def add_is_a(self, child: str, parent: str, generality: float = 1.0, child_kind: Optional[str] = None) -> Link:
         if child_kind:
@@ -285,6 +334,15 @@ class KnowledgeBase:
     def branches(self) -> List[Branch]:
         return list(self._branches_by_id.values())
 
+    def branch_by_id(self, branch_id: int) -> Optional[Branch]:
+        return self._branches_by_id.get(branch_id)
+
+    def branch_by_node_id(self, node_id: int) -> Optional[Branch]:
+        branch_id = self._decode_branch_id(node_id)
+        if branch_id is None:
+            return None
+        return self._branches_by_id.get(branch_id)
+
     def remove_link(self, link_id: int) -> bool:
         link = self._links_by_id.pop(link_id, None)
         if not link:
@@ -324,6 +382,7 @@ class KnowledgeBase:
                     "relation": link.relation,
                     "generality": link.generality,
                     "actuality": link.actuality,
+                    "created_at": link.created_at,
                     "evidence": list(link.evidence),
                 }
                 for link in self._links_by_id.values()
@@ -375,6 +434,7 @@ class KnowledgeBase:
                 link["relation"],
                 generality=link.get("generality", 0.0),
                 actuality=link.get("actuality", 1.0),
+                created_at=link.get("created_at") or "legacy",
                 evidence=list(link.get("evidence", [])),
                 link_id=link["id"],
             )
@@ -450,6 +510,7 @@ class KnowledgeBase:
                 relation,
                 generality=generality,
                 actuality=actuality,
+                created_at="legacy",
                 link_id=link_id,
             )
 
@@ -490,9 +551,57 @@ class KnowledgeBase:
     def recent_links(self, limit: int = 10) -> List[Link]:
         return sorted(self._links_by_id.values(), key=lambda lk: lk.id, reverse=True)[:limit]
 
+    def node_label(self, node_id: int, wrap_branch: bool = True) -> str:
+        if self.is_branch_node(node_id):
+            branch = self.branch_by_node_id(node_id)
+            if not branch:
+                return "(branch)" if wrap_branch else "branch"
+            text = self.branch_sentence(branch)
+            return f"({text})" if wrap_branch else text
+        sym = self.symbol_by_id(node_id)
+        return sym.name if sym else "something"
+
+    def node_kind(self, node_id: int) -> str:
+        if self.is_branch_node(node_id):
+            return "branch"
+        sym = self.symbol_by_id(node_id)
+        return sym.kind if sym else "unknown"
+
+    def node_label_with_id(self, node_id: int, wrap_branch: bool = True) -> str:
+        if self.is_branch_node(node_id):
+            branch_id = self._decode_branch_id(node_id)
+            branch = self.branch_by_node_id(node_id)
+            inner = self.branch_sentence_with_ids(branch) if branch else "branch"
+            label = f"branch:{branch_id} {inner}".strip()
+            return f"({label})" if wrap_branch else label
+        sym = self.symbol_by_id(node_id)
+        if not sym:
+            return "unknown"
+        return f"{sym.name}:{sym.id}"
+
+    def branch_sentence_with_ids(self, branch: Optional[Branch]) -> str:
+        if not branch:
+            return ""
+        tokens: List[str] = []
+        for idx, logo_id in enumerate(branch.logos):
+            tokens.append(self.node_label_with_id(logo_id, wrap_branch=True))
+            if idx < len(branch.links):
+                link = self._links_by_id.get(branch.links[idx])
+                if link:
+                    tokens.append(link.relation)
+        return " ".join(t for t in tokens if t).strip()
+
+    def branch_sentence(self, branch: Branch) -> str:
+        tokens: List[str] = []
+        for idx, logo_id in enumerate(branch.logos):
+            tokens.append(self.node_label(logo_id, wrap_branch=True))
+            if idx < len(branch.links):
+                link = self._links_by_id.get(branch.links[idx])
+                if link:
+                    tokens.append(link.relation)
+        return " ".join(t for t in tokens if t).strip()
+
     def link_sentence(self, link: Link) -> str:
-        source = self.symbol_by_id(link.source)
-        target = self.symbol_by_id(link.target)
-        if not source or not target:
-            return link.relation
-        return f"{source.name} {link.relation} {target.name}"
+        source_label = self.node_label(link.source, wrap_branch=True)
+        target_label = self.node_label(link.target, wrap_branch=True)
+        return f"{source_label} {link.relation} {target_label}"

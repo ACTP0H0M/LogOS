@@ -38,6 +38,7 @@ body {
   box-shadow: none;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -49,6 +50,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .brand h1 {
@@ -127,95 +129,145 @@ body {
   background: #0ea5e9;
 }
 
-/* Graph pane */
-.graph-head h2 {
+/* Link table pane */
+.link-head h2 {
   margin: 0;
   font-size: 1.15rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
-.graph-sub {
+.link-sub {
   margin: 6px 0 0;
   color: var(--muted);
   font-size: 0.92rem;
 }
 
-.graph-wrap {
+.link-tools {
+  margin-top: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.link-tools input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.55);
+  color: inherit;
+  outline: none;
+}
+
+.link-tools input:focus {
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+}
+
+.link-count {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.link-table-wrap {
+  margin-top: 12px;
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-rows: 1fr auto;
-  gap: 12px;
-}
-
-.graph-canvas {
-  width: 100%;
-  height: 100%;
-  min-height: 320px;
-  background: rgba(2, 6, 23, 0.55);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  border-radius: var(--radius);
-}
-
-.graph-inspector {
-  background: rgba(2, 6, 23, 0.35);
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  border-radius: var(--radius);
-  padding: 14px;
-  max-height: 220px;
   overflow: auto;
-}
-
-.graph-empty {
-  color: var(--muted);
-  line-height: 1.4;
-}
-
-.node-card {
-  padding: 10px 12px;
-  border-radius: 14px;
+  overscroll-behavior: contain;
   border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(15, 23, 42, 0.6);
-}
-
-.node-title {
-  font-weight: 700;
-}
-
-.node-sub {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.edge-list {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.edge-row {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr 1.1fr auto;
-  gap: 10px;
-  align-items: baseline;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: var(--radius);
   background: rgba(2, 6, 23, 0.35);
 }
 
-.edge-rel {
+.link-table {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.link-table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(15, 23, 42, 0.9);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.link-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  vertical-align: top;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  border-right: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.link-table tbody td:last-child,
+.link-table thead th:last-child {
+  border-right: none;
+}
+
+.link-table tbody tr:nth-child(2n) {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.link-table tbody tr:hover {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.link-table .relation {
   color: rgba(56, 189, 248, 0.9);
   font-weight: 600;
+  text-transform: none;
 }
 
-.edge-meta {
-  color: rgba(226, 232, 240, 0.6);
-  font-size: 0.88rem;
+.link-table .metric {
   text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.link-table .timestamp {
+  color: rgba(226, 232, 240, 0.7);
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.link-table .empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 20px;
+}
+
+.link-table .col-source {
+  width: 22.5%;
+}
+
+.link-table .col-relation {
+  width: 12%;
+}
+
+.link-table .col-target {
+  width: 22.5%;
+}
+
+.link-table .col-metric {
+  width: 7%;
+}
+
+.link-table .col-time {
+  width: 20%;
 }
 
 @media (max-width: 720px) {

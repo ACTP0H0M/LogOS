@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LogOS — Symbolic Chat</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=202602083" />
   </head>
   <body>
     <main class="app">
@@ -30,18 +30,47 @@
       </section>
 
       <section class="pane right">
-        <header class="graph-head">
-          <h2>Knowledge Graph</h2>
-          <p class="graph-sub">Updates after each message. Click nodes to inspect connections.</p>
+        <header class="link-head">
+          <h2>Knowledge Links</h2>
+          <p class="link-sub">Full table view of the hypergraph links.</p>
         </header>
 
-        <div class="graph-wrap">
-          <canvas class="graph-canvas" id="graphCanvas"></canvas>
-          <div class="graph-inspector" id="graphInspector">
-            <div class="graph-empty">
-              Send a message to build the graph.
-            </div>
-          </div>
+        <div class="link-tools">
+          <input
+            type="text"
+            id="linkSearch"
+            placeholder="Filter, e.g. source:computer; relation:where_loc"
+            autocomplete="off"
+          />
+          <div class="link-count" id="linkCount">0 links</div>
+        </div>
+
+        <div class="link-table-wrap">
+          <table class="link-table">
+            <colgroup>
+              <col class="col-source" />
+              <col class="col-relation" />
+              <col class="col-target" />
+              <col class="col-metric" />
+              <col class="col-metric" />
+              <col class="col-time" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th data-key="source_label">Source</th>
+                <th data-key="relation">Relation</th>
+                <th data-key="target_label">Target</th>
+                <th data-key="generality" data-type="number">g</th>
+                <th data-key="actuality" data-type="number">a</th>
+                <th data-key="created_at" data-type="time">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="linkTableBody">
+              <tr>
+                <td class="empty" colspan="6">Send a message to build the knowledge base.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
     </main>
@@ -51,14 +80,12 @@
       const composer = document.getElementById("composer");
       const messageInput = document.getElementById("message");
 
-      const canvas = document.getElementById("graphCanvas");
-      const inspector = document.getElementById("graphInspector");
-      const ctx = canvas.getContext("2d");
-
-      let graph = { nodes: [], links: [] };
-      let layout = { nodes: [], links: [] };
-      let selectedNodeId = null;
-      let animHandle = null;
+      const linkSearch = document.getElementById("linkSearch");
+      const linkCount = document.getElementById("linkCount");
+      const linkTableBody = document.getElementById("linkTableBody");
+      const linkTable = document.querySelector(".link-table");
+      let linkData = [];
+      let sortState = { key: null, dir: "asc" };
 
       const appendBubble = (text, type) => {
         const bubble = document.createElement("div");
@@ -70,210 +97,176 @@
 
       appendBubble("Hi! Tell me about yourself or ask what I know.", "bot");
 
-      const resizeCanvas = () => {
-        const rect = canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-        canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      };
-
-      const buildLayout = (g) => {
-        const rect = canvas.getBoundingClientRect();
-        const w = Math.max(1, rect.width);
-        const h = Math.max(1, rect.height);
-        const nodes = g.nodes.map((n) => ({
-          ...n,
-          x: Math.random() * w,
-          y: Math.random() * h,
-          vx: 0,
-          vy: 0,
-        }));
-        const byId = new Map(nodes.map((n) => [n.id, n]));
-        const links = g.links
-          .map((l) => ({
-            ...l,
-            sourceNode: byId.get(l.source),
-            targetNode: byId.get(l.target),
-          }))
-          .filter((l) => l.sourceNode && l.targetNode);
-
-        return { nodes, links };
-      };
-
-      const tick = () => {
-        const rect = canvas.getBoundingClientRect();
-        const w = Math.max(1, rect.width);
-        const h = Math.max(1, rect.height);
-        const nodes = layout.nodes;
-        const links = layout.links;
-
-        const centerPull = 0.0025;
-        const repel = 2600;
-        const linkK = 0.012;
-        const targetLen = 110;
-        const damping = 0.86;
-
-        for (let i = 0; i < nodes.length; i++) {
-          const a = nodes[i];
-          for (let j = i + 1; j < nodes.length; j++) {
-            const b = nodes[j];
-            const dx = a.x - b.x;
-            const dy = a.y - b.y;
-            const d2 = dx * dx + dy * dy + 0.01;
-            const f = repel / d2;
-            const fx = (dx / Math.sqrt(d2)) * f;
-            const fy = (dy / Math.sqrt(d2)) * f;
-            a.vx += fx;
-            a.vy += fy;
-            b.vx -= fx;
-            b.vy -= fy;
+      const parseFilters = (raw) => {
+        if (!raw) return { tokens: [], text: "" };
+        const parts = raw
+          .split(";")
+          .map((p) => p.trim())
+          .filter(Boolean);
+        const tokens = [];
+        let residual = [];
+        for (const part of parts) {
+          const idx = part.indexOf(":");
+          if (idx === -1) {
+            residual.push(part);
+            continue;
           }
+          const key = part.slice(0, idx).trim().toLowerCase();
+          const value = part.slice(idx + 1).trim().toLowerCase();
+          if (!key || !value) {
+            continue;
+          }
+          tokens.push({ key, value });
         }
-
-        for (const l of links) {
-          const a = l.sourceNode;
-          const b = l.targetNode;
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const d = Math.sqrt(dx * dx + dy * dy) + 0.01;
-          const diff = d - targetLen;
-          const f = linkK * diff;
-          const fx = (dx / d) * f;
-          const fy = (dy / d) * f;
-          a.vx += fx;
-          a.vy += fy;
-          b.vx -= fx;
-          b.vy -= fy;
-        }
-
-        for (const n of nodes) {
-          const cx = w / 2;
-          const cy = h / 2;
-          n.vx += (cx - n.x) * centerPull;
-          n.vy += (cy - n.y) * centerPull;
-
-          n.vx *= damping;
-          n.vy *= damping;
-          n.x += n.vx;
-          n.y += n.vy;
-
-          n.x = Math.max(20, Math.min(w - 20, n.x));
-          n.y = Math.max(20, Math.min(h - 20, n.y));
-        }
-
-        draw();
-        animHandle = window.requestAnimationFrame(tick);
+        return { tokens, text: residual.join(" ").trim().toLowerCase() };
       };
 
-      const draw = () => {
-        const rect = canvas.getBoundingClientRect();
-        const w = Math.max(1, rect.width);
-        const h = Math.max(1, rect.height);
-        ctx.clearRect(0, 0, w, h);
-
-        ctx.lineWidth = 1;
-        for (const l of layout.links) {
-          const highlight =
-            selectedNodeId !== null &&
-            (l.source === selectedNodeId || l.target === selectedNodeId);
-          ctx.strokeStyle = highlight ? "rgba(56,189,248,0.75)" : "rgba(148,163,184,0.22)";
-          ctx.beginPath();
-          ctx.moveTo(l.sourceNode.x, l.sourceNode.y);
-          ctx.lineTo(l.targetNode.x, l.targetNode.y);
-          ctx.stroke();
+      const matchFilter = (link, filter) => {
+        const source = (link.source_label || "").toLowerCase();
+        const relation = (link.relation || "").toLowerCase();
+        const target = (link.target_label || "").toLowerCase();
+        for (const { key, value } of filter.tokens) {
+          if (key === "source" && !source.includes(value)) return false;
+          if (key === "relation" && !relation.includes(value)) return false;
+          if (key === "target" && !target.includes(value)) return false;
         }
-
-        for (const n of layout.nodes) {
-          const isSelected = selectedNodeId === n.id;
-          ctx.fillStyle = isSelected ? "#38bdf8" : "#1f2937";
-          ctx.strokeStyle = isSelected ? "rgba(56,189,248,0.8)" : "rgba(148,163,184,0.35)";
-          ctx.lineWidth = isSelected ? 2 : 1;
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, isSelected ? 9 : 7, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = "rgba(226,232,240,0.9)";
-          ctx.font = "12px ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif";
-          ctx.fillText(n.label, n.x + 10, n.y + 4);
+        if (filter.text) {
+          const hay = `${source} ${relation} ${target}`;
+          if (!hay.includes(filter.text)) return false;
         }
+        return true;
       };
 
-      const nodeAt = (x, y) => {
-        for (const n of layout.nodes) {
-          const dx = x - n.x;
-          const dy = y - n.y;
-          if (dx * dx + dy * dy <= 10 * 10) return n;
+      const renderLinks = () => {
+        const filter = parseFilters(linkSearch.value);
+        let rows = linkData.filter((l) => matchFilter(l, filter));
+        if (sortState.key) {
+          const dir = sortState.dir === "desc" ? -1 : 1;
+          const key = sortState.key;
+          rows = rows.slice().sort((a, b) => {
+            const aVal = sortValue(a, key);
+            const bVal = sortValue(b, key);
+            if (aVal < bVal) return -1 * dir;
+            if (aVal > bVal) return 1 * dir;
+            return 0;
+          });
         }
-        return null;
-      };
-
-      const renderInspector = () => {
-        if (!graph.nodes.length) return;
-        const byId = new Map(graph.nodes.map((n) => [n.id, n]));
-
-        if (selectedNodeId === null) {
-          inspector.innerHTML = `
-            <div class="graph-empty">
-              Click a node to inspect it.
-            </div>
-          `;
+        linkCount.textContent = `${rows.length} link${rows.length === 1 ? "" : "s"}`;
+        if (!rows.length) {
+          linkTableBody.innerHTML = `<tr><td class="empty" colspan="6">No links match the filter.</td></tr>`;
           return;
         }
-
-        const node = byId.get(selectedNodeId);
-        const links = graph.links.filter(
-          (l) => l.source === selectedNodeId || l.target === selectedNodeId
-        );
-
-        const rows = links
-          .slice(0, 60)
+        linkTableBody.innerHTML = rows
           .map((l) => {
-            const s = byId.get(l.source)?.label ?? l.source;
-            const t = byId.get(l.target)?.label ?? l.target;
-            return `<div class="edge-row">
-              <span class="edge-st">${s}</span>
-              <span class="edge-rel">${l.relation}</span>
-              <span class="edge-st">${t}</span>
-              <span class="edge-meta">g=${Number(l.generality).toFixed(2)} a=${Number(l.actuality).toFixed(2)}</span>
-            </div>`;
+            const g = Number(l.generality ?? 0).toFixed(2);
+            const a = Number(l.actuality ?? 0).toFixed(2);
+            const ts = l.created_at || "";
+            return `<tr>
+              <td>${l.source_label ?? l.source}</td>
+              <td class="relation">${l.relation ?? ""}</td>
+              <td>${l.target_label ?? l.target}</td>
+              <td class="metric">${g}</td>
+              <td class="metric">${a}</td>
+              <td class="timestamp">${ts}</td>
+            </tr>`;
           })
           .join("");
-
-        inspector.innerHTML = `
-          <div class="node-card">
-            <div class="node-title">${node?.label ?? selectedNodeId}</div>
-            <div class="node-sub">kind: ${node?.kind ?? "unknown"} · connections: ${links.length}</div>
-          </div>
-          <div class="edge-list">${rows || '<div class="graph-empty">No edges.</div>'}</div>
-        `;
       };
 
-      const updateGraph = (g) => {
-        graph = g || { nodes: [], links: [] };
-        selectedNodeId = null;
-        resizeCanvas();
-        layout = buildLayout(graph);
-        renderInspector();
-        if (animHandle) window.cancelAnimationFrame(animHandle);
-        animHandle = window.requestAnimationFrame(tick);
+      linkSearch.addEventListener("input", renderLinks);
+
+      const sortValue = (row, key) => {
+        if (key === "generality" || key === "actuality") {
+          return Number(row[key] ?? 0);
+        }
+        if (key === "created_at") {
+          const raw = row.created_at;
+          const parsed = raw ? Date.parse(raw) : NaN;
+          return Number.isFinite(parsed) ? parsed : 0;
+        }
+        if (key === "source_label") {
+          return (row.source_label ?? row.source ?? "").toString().toLowerCase();
+        }
+        if (key === "target_label") {
+          return (row.target_label ?? row.target ?? "").toString().toLowerCase();
+        }
+        return (row[key] ?? "").toString().toLowerCase();
       };
 
-      window.addEventListener("resize", () => {
-        resizeCanvas();
-        draw();
-      });
+      const updateSortIndicators = () => {
+        const headers = linkTable.querySelectorAll("thead th[data-key]");
+        headers.forEach((th) => {
+          const key = th.dataset.key;
+          if (key === sortState.key) {
+            th.dataset.sort = sortState.dir;
+          } else {
+            th.dataset.sort = "none";
+          }
+        });
+      };
 
-      canvas.addEventListener("click", (event) => {
-        const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        const n = nodeAt(x, y);
-        selectedNodeId = n ? n.id : null;
-        renderInspector();
-        draw();
-      });
+      const initSorting = () => {
+        const headers = linkTable.querySelectorAll("thead th[data-key]");
+        headers.forEach((th) => {
+          th.addEventListener("click", (event) => {
+            if (event.target?.classList?.contains("col-resizer")) return;
+            const key = th.dataset.key;
+            if (sortState.key === key) {
+              sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+            } else {
+              sortState.key = key;
+              sortState.dir = "asc";
+            }
+            updateSortIndicators();
+            renderLinks();
+          });
+        });
+        updateSortIndicators();
+      };
+
+      const initResizableColumns = () => {
+        const headers = Array.from(linkTable.querySelectorAll("thead th"));
+        const cols = Array.from(linkTable.querySelectorAll("colgroup col"));
+        if (!headers.length || cols.length !== headers.length) return;
+
+        headers.forEach((th, index) => {
+          const resizer = document.createElement("div");
+          resizer.className = "col-resizer";
+          th.appendChild(resizer);
+
+          let startX = 0;
+          let startWidth = 0;
+
+          const onMouseMove = (event) => {
+            const delta = event.clientX - startX;
+            const nextWidth = Math.max(80, startWidth + delta);
+            cols[index].style.width = `${nextWidth}px`;
+          };
+
+          const onMouseUp = () => {
+            document.body.style.cursor = "";
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+          };
+
+          resizer.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            startX = event.clientX;
+            startWidth = th.getBoundingClientRect().width;
+            document.body.style.cursor = "col-resize";
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+          });
+        });
+
+        headers.forEach((th, index) => {
+          cols[index].style.width = `${th.getBoundingClientRect().width}px`;
+        });
+      };
+
+      initSorting();
+      initResizableColumns();
 
       composer.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -289,7 +282,8 @@
         });
         const data = await response.json();
         appendBubble(data.reply, "bot");
-        updateGraph(data.graph);
+        linkData = Array.isArray(data.links) ? data.links : [];
+        renderLinks();
       });
     </script>
   </body>

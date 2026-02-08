@@ -79,7 +79,7 @@ def _dbg_trace(trace_id: Optional[str] = None):
 class ChatResponse:
     reply: str
     facts: Dict[str, str]
-    graph: Dict[str, object]
+    links: List[Dict[str, object]]
 
 
 class ChatEngine:
@@ -144,12 +144,10 @@ class ChatEngine:
                 _dbg("save_current_session disabled")
 
             facts = self._facts_snapshot()
-            graph = self._graph_snapshot()
-            nodes = graph.get("nodes", []) if isinstance(graph, dict) else []
-            links = graph.get("links", []) if isinstance(graph, dict) else []
+            links = self._links_snapshot()
             _dbg(f"facts snapshot: {len(facts)} items", level=2)
-            _dbg(f"graph snapshot: nodes={len(nodes)} links={len(links)}", level=2)
-            return ChatResponse(reply=reply, facts=facts, graph=graph)
+            _dbg(f"links snapshot: {len(links)} items", level=2)
+            return ChatResponse(reply=reply, facts=facts, links=links)
 
     def _learn_statement(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
         with _dbg_scope("ChatEngine._learn_statement()"):
@@ -307,12 +305,44 @@ class ChatEngine:
                         _dbg(f"unknown relation obj -> ensure_symbol(kind={inferred!r})", level=2)
                         obj_symbol = self._knowledge.ensure_symbol(obj, kind=inferred)
                         new_symbol_ids.append(obj_symbol.id)
-                        link = self._knowledge.add_relation(subject, rel, obj, generality=0.1, actuality=0.4)
-                        _dbg(f"add_relation low-confidence -> link_id={link.id}", level=2)
+                        relation_generality = 0.1
+                        relation_actuality = 0.4
                     else:
                         _dbg(f"known relation obj -> id={obj_symbol.id} kind={obj_symbol.kind!r}", level=2)
-                        link = self._knowledge.add_relation(subject, rel, obj, generality=0.4, actuality=0.9)
-                        _dbg(f"add_relation high-confidence -> link_id={link.id}", level=2)
+                        relation_generality = 0.4
+                        relation_actuality = 0.9
+
+                    if rel == "where_loc" and relation != rel:
+                        prep_symbol = self._knowledge.symbol_by_name(relation)
+                        if not prep_symbol:
+                            _dbg(f"unknown preposition -> ensure_symbol(kind='relation')", level=2)
+                            prep_symbol = self._knowledge.ensure_symbol(relation, kind="relation")
+                            new_symbol_ids.append(prep_symbol.id)
+                        branch, prep_link = self._knowledge.add_prep_branch(
+                            obj_symbol.id,
+                            prep_symbol.id,
+                            generality=relation_generality,
+                            actuality=relation_actuality,
+                        )
+                        created_links.append(prep_link.id)
+                        _dbg(f"add_prep_branch -> branch_id={branch.id} prep_link_id={prep_link.id}", level=2)
+                        link = self._knowledge.add_relation_to_branch(
+                            subject,
+                            rel,
+                            branch.id,
+                            generality=relation_generality,
+                            actuality=relation_actuality,
+                        )
+                        _dbg(f"add_relation (to branch) -> link_id={link.id}", level=2)
+                    else:
+                        link = self._knowledge.add_relation(
+                            subject,
+                            rel,
+                            obj,
+                            generality=relation_generality,
+                            actuality=relation_actuality,
+                        )
+                        _dbg(f"add_relation -> link_id={link.id}", level=2)
                     created_links.append(link.id)
 
             _dbg(f"unknown clarifications generated: {len(unknowns)}", level=2)
@@ -642,6 +672,27 @@ class ChatEngine:
                 _dbg(f"fact:{index} -> {_short(sentence)!r}", level=2)
             return snapshot
 
+    def _links_snapshot(self) -> List[Dict[str, object]]:
+        with _dbg_scope("ChatEngine._links_snapshot()", level=2):
+            links = sorted(self._knowledge.links(), key=lambda lk: lk.id)
+            _dbg(f"knowledge.links() -> {len(links)}", level=2)
+            payload: List[Dict[str, object]] = []
+            for link in links:
+                payload.append(
+                    {
+                        "id": link.id,
+                        "source": link.source,
+                        "source_label": self._knowledge.node_label_with_id(link.source, wrap_branch=True),
+                        "relation": link.relation,
+                        "target": link.target,
+                        "target_label": self._knowledge.node_label_with_id(link.target, wrap_branch=True),
+                        "generality": link.generality,
+                        "actuality": link.actuality,
+                        "created_at": link.created_at,
+                    }
+                )
+            return payload
+
     def _graph_snapshot(self, max_links: int = 120, max_nodes: int = 80) -> Dict[str, object]:
         with _dbg_scope("ChatEngine._graph_snapshot()", level=2):
             # Keep the browser-side visualization cheap by sending a recent subgraph.
@@ -668,10 +719,9 @@ class ChatEngine:
             ]
             node_payload: List[Dict[str, object]] = []
             for node_id in node_ids:
-                sym = self._knowledge.symbol_by_id(node_id)
-                if not sym:
-                    continue
-                node_payload.append({"id": sym.id, "label": sym.name, "kind": sym.kind})
+                label = self._knowledge.node_label(node_id, wrap_branch=True)
+                kind = self._knowledge.node_kind(node_id)
+                node_payload.append({"id": node_id, "label": label, "kind": kind})
             _dbg(f"graph payload -> nodes={len(node_payload)} links={len(link_payload)}", level=2)
             return {"nodes": node_payload, "links": link_payload}
 
@@ -686,10 +736,8 @@ class ChatEngine:
                 if not link:
                     _dbg(f"link_id={link_id} -> missing", level=2)
                     continue
-                source = self._knowledge.symbol_by_id(link.source)
-                target = self._knowledge.symbol_by_id(link.target)
-                source_name = source.name.lower() if source else ""
-                target_name = target.name.lower() if target else ""
+                source_name = self._knowledge.node_label(link.source, wrap_branch=False).lower()
+                target_name = self._knowledge.node_label(link.target, wrap_branch=False).lower()
                 relation = link.relation.lower()
                 if source_name in tokens or target_name in tokens or relation in tokens:
                     _dbg(f"match link_id={link_id} by exact token", level=2)
