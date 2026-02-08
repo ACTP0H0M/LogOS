@@ -53,6 +53,7 @@ class KnowledgeBase:
         self._next_branch_id = 0
         self._category_ids: Dict[str, int] = {}
         self._relation_names: List[str] = []
+        self._verb_meta: Dict[str, Dict[str, object]] = {}
         self._ensure_base_categories()
         self._ensure_special_symbols()
         self._ensure_relation_ontology()
@@ -82,6 +83,7 @@ class KnowledgeBase:
         self.set_symbol_kind("#SELF", "entity")
         self.set_symbol_kind("#USER", "entity")
         self.set_symbol_kind("#NOW", "time")
+        self.set_symbol_kind("#UNKNOWN", "entity")
         self.add_alias("#USER", "user")
         self.add_alias("#SELF", "logos")
         self.add_alias("#NOW", "now")
@@ -191,6 +193,27 @@ class KnowledgeBase:
         if alias not in symbol.aliases:
             symbol.aliases.append(alias)
             self._symbols_by_name[_normalize(alias)] = symbol
+
+    def verb_meta(self, verb: str) -> Dict[str, object]:
+        return dict(self._verb_meta.get(_normalize(verb), {}))
+
+    def set_verb_meta(
+        self,
+        verb: str,
+        *,
+        lemma: Optional[str] = None,
+        tense: Optional[str] = None,
+        transitive: Optional[bool] = None,
+    ) -> None:
+        key = _normalize(verb)
+        meta = dict(self._verb_meta.get(key, {}))
+        if lemma:
+            meta["lemma"] = lemma
+        if tense:
+            meta["tense"] = tense
+        if transitive is not None:
+            meta["transitive"] = bool(transitive)
+        self._verb_meta[key] = meta
 
     def add_link(
         self,
@@ -399,6 +422,7 @@ class KnowledgeBase:
                 "next_symbol_id": self._next_symbol_id,
                 "next_link_id": self._next_link_id,
                 "next_branch_id": self._next_branch_id,
+                "verb_meta": {k: dict(v) for k, v in self._verb_meta.items()},
             },
         }
 
@@ -446,6 +470,7 @@ class KnowledgeBase:
         kb._next_symbol_id = max(kb._next_symbol_id, metadata.get("next_symbol_id", kb._next_symbol_id))
         kb._next_link_id = max(kb._next_link_id, metadata.get("next_link_id", kb._next_link_id))
         kb._next_branch_id = max(kb._next_branch_id, metadata.get("next_branch_id", kb._next_branch_id))
+        kb._verb_meta = dict(metadata.get("verb_meta", {}))
 
         kb._category_ids = {
             _normalize(sym.name): sym.id

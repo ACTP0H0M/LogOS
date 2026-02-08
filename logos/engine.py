@@ -206,6 +206,10 @@ class ChatEngine:
                 f"subject={utterance.subject!r}, obj={utterance.obj!r}, "
                 f"attributes={utterance.attributes}, relations={utterance.relations}"
             )
+            if utterance.passive_verb:
+                return self._learn_passive_statement(utterance, parse_payload=parse_payload)
+            if utterance.active_verb:
+                return self._learn_active_statement(utterance, parse_payload=parse_payload)
             subject = self._resolve_pronoun(utterance.subject)
             _dbg(f"resolved subject: {subject!r}")
             if not subject:
@@ -248,7 +252,8 @@ class ChatEngine:
                 _dbg(f"subject rewritten to possessed: {subject!r}")
 
             unknown_terms = self._unknown_terms(utterance)
-            subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_terms)
+            unknown_set = set(unknown_terms)
+            subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_set)
             if subject_symbol:
                 _dbg(
                     f"ensure_symbol(subject) -> id={subject_symbol.id} kind={subject_symbol.kind!r} name={subject_symbol.name!r}"
@@ -300,7 +305,7 @@ class ChatEngine:
         new_symbol_ids: List[int],
         created_links: List[int],
         parse_payload: Optional[Dict[str, object]] = None,
-        unknown_terms: Optional[set[str]] = None,
+        unknown_terms: Optional[List[str]] = None,
     ) -> List[Clarification]:
         with _dbg_scope("ChatEngine._collect_unknowns()", level=2):
             unknowns: List[Clarification] = []
@@ -311,18 +316,31 @@ class ChatEngine:
             )
 
             unknown_terms = unknown_terms or self._unknown_terms(utterance)
-            for term in sorted(unknown_terms):
+            unknown_set = set(unknown_terms)
+            for term in unknown_terms:
                 unknowns.append(Clarification(term=term, role="kind", context=utterance.raw))
+                if (
+                    utterance.passive_verb
+                    and term.lower() == utterance.passive_verb.lower()
+                    and self._needs_lemma(utterance.passive_verb)
+                ):
+                    unknowns.append(Clarification(term=utterance.passive_verb, role="lemma", context=utterance.raw))
+                if utterance.active_verb and term.lower() == utterance.active_verb.lower():
+                    meta = self._knowledge.verb_meta(term)
+                    if not meta.get("tense"):
+                        unknowns.append(Clarification(term=term, role="tense", context=utterance.raw))
+                    if meta.get("transitive") is None:
+                        unknowns.append(Clarification(term=term, role="transitive", context=utterance.raw))
             _dbg(f"unknown terms: {sorted(unknown_terms)}", level=2)
 
-            subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_terms)
+            subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_set)
             if subject_symbol and subject_symbol.id not in new_symbol_ids:
                 new_symbol_ids.append(subject_symbol.id)
 
             for attr in utterance.attributes:
                 with _dbg_scope(f"attr: {attr!r}", level=2):
                     attr_symbol = self._knowledge.symbol_by_name(attr)
-                    attr_unknown = self._term_is_unknown(attr, unknown_terms) if attr_symbol is None else attr_symbol.kind == "unknown"
+                    attr_unknown = self._term_is_unknown(attr, unknown_set) if attr_symbol is None else attr_symbol.kind == "unknown"
                     if not attr_symbol:
                         inferred = None if attr_unknown else self._infer_kind_from_parse(attr, parse_payload) or "property"
                         _dbg(f"unknown attr symbol -> ensure_symbol(kind={inferred!r})", level=2)
@@ -354,7 +372,7 @@ class ChatEngine:
                     else:
                         _dbg("obj_symbol -> None", level=2)
 
-                    obj_unknown = self._term_is_unknown(obj or "", unknown_terms) if obj_symbol is None else obj_symbol.kind == "unknown"
+                    obj_unknown = self._term_is_unknown(obj or "", unknown_set) if obj_symbol is None else obj_symbol.kind == "unknown"
 
                     if obj_symbol and obj_symbol.kind == "category":
                         link = self._knowledge.add_is_a(subject, obj)
@@ -389,7 +407,7 @@ class ChatEngine:
                     _dbg(f"normalized relation: {rel!r}", level=2)
                     _dbg(f"obj: {obj!r}", level=2)
                     obj_symbol = self._knowledge.symbol_by_name(obj)
-                    obj_unknown = self._term_is_unknown(obj, unknown_terms) if obj_symbol is None else obj_symbol.kind == "unknown"
+                    obj_unknown = self._term_is_unknown(obj, unknown_set) if obj_symbol is None else obj_symbol.kind == "unknown"
                     if not obj_symbol:
                         inferred = None if obj_unknown else self._infer_kind_for_relation_object(rel)
                         inferred = inferred or (None if obj_unknown else self._infer_kind_from_parse(obj, parse_payload)) or (
@@ -409,7 +427,7 @@ class ChatEngine:
                         property_links: List[int] = []
                         for modifier in modifiers:
                             mod_symbol = self._knowledge.symbol_by_name(modifier)
-                            mod_unknown = self._term_is_unknown(modifier, unknown_terms) if mod_symbol is None else mod_symbol.kind == "unknown"
+                            mod_unknown = self._term_is_unknown(modifier, unknown_set) if mod_symbol is None else mod_symbol.kind == "unknown"
                             if not mod_symbol:
                                 inferred = None if mod_unknown else self._infer_kind_from_parse(modifier, parse_payload) or "property"
                                 mod_symbol = self._knowledge.ensure_symbol(modifier, kind=inferred)
@@ -485,9 +503,10 @@ class ChatEngine:
             _dbg(f"unknown clarifications generated: {len(unknowns)}", level=2)
             return unknowns
 
-    def _unknown_terms(self, utterance: ParsedUtterance) -> set[str]:
+    def _unknown_terms(self, utterance: ParsedUtterance) -> List[str]:
         tokens = tokenize(utterance.raw or "")
-        unknown: set[str] = set()
+        unknown: List[str] = []
+        seen: set[str] = set()
         for token in tokens:
             if not token:
                 continue
@@ -498,7 +517,10 @@ class ChatEngine:
             symbol = self._knowledge.symbol_by_name(token)
             if symbol and symbol.kind != "unknown":
                 continue
-            unknown.add(token)
+            if token in seen:
+                continue
+            unknown.append(token)
+            seen.add(token)
         return unknown
 
     def _term_is_unknown(self, term: str, unknown_terms: set[str]) -> bool:
@@ -508,6 +530,14 @@ class ChatEngine:
             if token in unknown_terms:
                 return True
         return False
+
+    def _needs_lemma(self, verb: str) -> bool:
+        if not verb:
+            return False
+        symbol = self._knowledge.symbol_by_name(verb)
+        if not symbol:
+            return True
+        return symbol.name.strip().lower() == verb.strip().lower()
 
     def _ensure_symbol_optional_kind(
         self,
@@ -599,6 +629,55 @@ class ChatEngine:
                 "popped clarification -> "
                 f"term={clarification.term!r} role={clarification.role!r} context={clarification.context!r} link_ids={clarification.link_ids}"
             )
+
+            if clarification.role == "lemma":
+                lemma = message.strip().strip(".,!?;:").replace(" ", "_")
+                if not lemma:
+                    self._state.queue_clarification(clarification)
+                    return "Please provide the base form of the verb (e.g., give_birth)."
+                verb_symbol = self._knowledge.ensure_symbol(lemma, kind="action")
+                self._knowledge.add_alias(verb_symbol.name, clarification.term)
+                self._knowledge.set_verb_meta(verb_symbol.name, lemma=verb_symbol.name)
+                reply = f"Got it. The base form of '{clarification.term}' is '{verb_symbol.name}'."
+                if self._state.pending_clarifications:
+                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+                    return f"{reply} {prompt}"
+                return reply
+
+            if clarification.role == "tense":
+                lowered = message.lower()
+                tense = None
+                if "past" in lowered:
+                    tense = "past"
+                elif "present" in lowered:
+                    tense = "present"
+                if not tense:
+                    self._state.queue_clarification(clarification)
+                    return "Is it in the present tense or past tense?"
+                self._knowledge.set_verb_meta(clarification.term, tense=tense)
+                reply = f"Okay, I'll treat '{clarification.term}' as {tense} tense."
+                if self._state.pending_clarifications:
+                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+                    return f"{reply} {prompt}"
+                return reply
+
+            if clarification.role == "transitive":
+                lowered = message.lower()
+                transitive = None
+                if "intransitive" in lowered or "no object" in lowered:
+                    transitive = False
+                elif "transitive" in lowered or "takes an object" in lowered or "object" in lowered:
+                    transitive = True
+                if transitive is None:
+                    self._state.queue_clarification(clarification)
+                    return "Is it transitive (takes an object) or intransitive?"
+                self._knowledge.set_verb_meta(clarification.term, transitive=transitive)
+                label = "transitive" if transitive else "intransitive"
+                reply = f"Okay, I'll treat '{clarification.term}' as {label}."
+                if self._state.pending_clarifications:
+                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+                    return f"{reply} {prompt}"
+                return reply
 
             with _dbg_scope("parse_utterance(message)"):
                 utterance = parse_utterance(message)
@@ -840,6 +919,211 @@ class ChatEngine:
                     if upos in {"NUM"}:
                         return "entity"
             return None
+
+    def _learn_passive_statement(
+        self,
+        utterance: ParsedUtterance,
+        parse_payload: Optional[Dict[str, object]] = None,
+    ) -> str:
+        with _dbg_scope("ChatEngine._learn_passive_statement()"):
+            verb = utterance.passive_verb
+            patient = self._resolve_pronoun(utterance.passive_patient or utterance.subject)
+            agent = self._resolve_pronoun(utterance.passive_agent) if utterance.passive_agent else "#UNKNOWN"
+            loc = utterance.passive_loc
+            _dbg(f"passive verb: {verb!r}")
+            _dbg(f"passive patient: {patient!r}")
+            _dbg(f"passive agent: {agent!r}")
+            _dbg(f"passive loc: {loc}")
+
+            if not verb or not patient:
+                return "I could not parse that passive statement."
+
+            new_symbol_ids: List[int] = []
+            created_links: List[int] = []
+            unknown_terms = self._unknown_terms(utterance)
+            unknown_set = set(unknown_terms)
+
+            agent_symbol = self._ensure_symbol_optional_kind(agent, "entity", unknown_set)
+            if agent_symbol and agent_symbol.id not in new_symbol_ids:
+                new_symbol_ids.append(agent_symbol.id)
+
+            patient_symbol = self._ensure_symbol_optional_kind(patient, "entity", unknown_set)
+            if patient_symbol and patient_symbol.id not in new_symbol_ids:
+                new_symbol_ids.append(patient_symbol.id)
+
+            verb_symbol = self._ensure_symbol_optional_kind(verb, "action", unknown_set)
+            if verb_symbol and verb_symbol.id not in new_symbol_ids:
+                new_symbol_ids.append(verb_symbol.id)
+
+            relation_generality = 0.1 if self._term_is_unknown(verb, unknown_set) else 0.4
+            relation_actuality = 0.4 if self._term_is_unknown(verb, unknown_set) else 0.9
+
+            branch_node_id: Optional[int] = None
+            if verb_symbol and patient_symbol:
+                whom_link = self._knowledge.add_link(
+                    verb_symbol.id,
+                    patient_symbol.id,
+                    "whom",
+                    generality=relation_generality,
+                    actuality=relation_actuality,
+                )
+                created_links.append(whom_link.id)
+                branch = self._knowledge.add_branch([verb_symbol.id, patient_symbol.id], [whom_link.id])
+                branch_node_id = self._knowledge.branch_node_id(branch.id)
+
+            if loc and branch_node_id is not None:
+                _, loc_obj = loc
+                loc_symbol = self._ensure_symbol_optional_kind(loc_obj, "location", unknown_set)
+                if loc_symbol and loc_symbol.id not in new_symbol_ids:
+                    new_symbol_ids.append(loc_symbol.id)
+                if loc_symbol:
+                    where_link = self._knowledge.add_link(
+                        branch_node_id,
+                        loc_symbol.id,
+                        "where_loc",
+                        generality=relation_generality,
+                        actuality=relation_actuality,
+                    )
+                    created_links.append(where_link.id)
+                    branch = self._knowledge.add_branch([branch_node_id, loc_symbol.id], [where_link.id])
+                    branch_node_id = self._knowledge.branch_node_id(branch.id)
+
+            if agent_symbol and branch_node_id is not None:
+                did_link = self._knowledge.add_link(
+                    agent_symbol.id,
+                    branch_node_id,
+                    "did",
+                    generality=relation_generality,
+                    actuality=relation_actuality,
+                )
+                created_links.append(did_link.id)
+
+            unknowns = self._collect_unknowns(
+                patient,
+                utterance,
+                new_symbol_ids,
+                created_links,
+                parse_payload=parse_payload,
+                unknown_terms=unknown_terms,
+            )
+
+            event = self._episodic.add_event(utterance.raw, created_links, new_symbol_ids, parse=parse_payload)
+            _dbg(f"episodic.add_event -> event_id={event.id} links={created_links} new_symbols={new_symbol_ids}")
+            self._state.last_added_links = list(created_links)
+            self._state.last_utterance = utterance.raw
+
+            if unknowns:
+                for clarification in unknowns:
+                    self._state.queue_clarification(clarification)
+                prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+                return prompt
+
+            return "Understood."
+
+    def _learn_active_statement(
+        self,
+        utterance: ParsedUtterance,
+        parse_payload: Optional[Dict[str, object]] = None,
+    ) -> str:
+        with _dbg_scope("ChatEngine._learn_active_statement()"):
+            verb = utterance.active_verb
+            subject = self._resolve_pronoun(utterance.subject)
+            obj = self._resolve_pronoun(utterance.active_object) if utterance.active_object else None
+            _dbg(f"active subject: {subject!r}")
+            _dbg(f"active verb: {verb!r}")
+            _dbg(f"active object: {obj!r}")
+
+            if not subject or not verb or not obj:
+                return "I could not parse that statement."
+
+            new_symbol_ids: List[int] = []
+            created_links: List[int] = []
+            unknown_terms = self._unknown_terms(utterance)
+            unknown_set = set(unknown_terms)
+
+            subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_set)
+            if subject_symbol and subject_symbol.id not in new_symbol_ids:
+                new_symbol_ids.append(subject_symbol.id)
+
+            obj_symbol = self._ensure_symbol_optional_kind(obj, "entity", unknown_set)
+            if obj_symbol and obj_symbol.id not in new_symbol_ids:
+                new_symbol_ids.append(obj_symbol.id)
+
+            verb_symbol = self._ensure_symbol_optional_kind(verb, "action", unknown_set)
+            if verb_symbol and verb_symbol.id not in new_symbol_ids:
+                new_symbol_ids.append(verb_symbol.id)
+
+            meta = self._knowledge.verb_meta(verb_symbol.name if verb_symbol else verb)
+            tense = meta.get("tense")
+            relation = "did" if tense == "past" else "do"
+            relation_generality = 0.1 if self._term_is_unknown(verb, unknown_set) else 0.4
+            relation_actuality = 0.4 if self._term_is_unknown(verb, unknown_set) else 0.9
+
+            branch_node_id: Optional[int] = None
+            if verb_symbol and obj_symbol:
+                whom_link = self._knowledge.add_link(
+                    verb_symbol.id,
+                    obj_symbol.id,
+                    "whom",
+                    generality=relation_generality,
+                    actuality=relation_actuality,
+                )
+                created_links.append(whom_link.id)
+                branch = self._knowledge.add_branch([verb_symbol.id, obj_symbol.id], [whom_link.id])
+                branch_node_id = self._knowledge.branch_node_id(branch.id)
+
+            if subject_symbol and branch_node_id is not None:
+                action_link = self._knowledge.add_link(
+                    subject_symbol.id,
+                    branch_node_id,
+                    relation,
+                    generality=relation_generality,
+                    actuality=relation_actuality,
+                )
+                created_links.append(action_link.id)
+
+            if obj_symbol and utterance.active_object_modifiers:
+                for modifier in utterance.active_object_modifiers:
+                    mod_symbol = self._knowledge.symbol_by_name(modifier)
+                    mod_unknown = (
+                        self._term_is_unknown(modifier, unknown_set)
+                        if mod_symbol is None
+                        else mod_symbol.kind == "unknown"
+                    )
+                    if not mod_symbol:
+                        inferred = None if mod_unknown else self._infer_kind_from_parse(modifier, parse_payload) or "property"
+                        mod_symbol = self._knowledge.ensure_symbol(modifier, kind=inferred)
+                        new_symbol_ids.append(mod_symbol.id)
+                    link = self._knowledge.add_link(
+                        obj_symbol.id,
+                        mod_symbol.id,
+                        "is",
+                        generality=relation_generality,
+                        actuality=relation_actuality,
+                    )
+                    created_links.append(link.id)
+
+            unknowns = self._collect_unknowns(
+                subject,
+                utterance,
+                new_symbol_ids,
+                created_links,
+                parse_payload=parse_payload,
+                unknown_terms=unknown_terms,
+            )
+
+            event = self._episodic.add_event(utterance.raw, created_links, new_symbol_ids, parse=parse_payload)
+            _dbg(f"episodic.add_event -> event_id={event.id} links={created_links} new_symbols={new_symbol_ids}")
+            self._state.last_added_links = list(created_links)
+            self._state.last_utterance = utterance.raw
+
+            if unknowns:
+                for clarification in unknowns:
+                    self._state.queue_clarification(clarification)
+                prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+                return prompt
+
+            return "Understood."
 
     def _acknowledge_statement(self, subject: str, utterance: ParsedUtterance) -> str:
         with _dbg_scope("ChatEngine._acknowledge_statement()", level=2):

@@ -66,6 +66,13 @@ class ParsedUtterance:
     attributes: List[str] = field(default_factory=list)
     relations: List[Tuple[str, str]] = field(default_factory=list)
     relation_modifiers: List[List[str]] = field(default_factory=list)
+    passive_verb: Optional[str] = None
+    passive_agent: Optional[str] = None
+    passive_patient: Optional[str] = None
+    passive_loc: Optional[Tuple[str, str]] = None
+    active_verb: Optional[str] = None
+    active_object: Optional[str] = None
+    active_object_modifiers: List[str] = field(default_factory=list)
     raw: str = ""
 
 
@@ -283,6 +290,110 @@ def parse_utterance(text: str) -> ParsedUtterance:
             _dbg(f"existential parsed subject (no preposition): {subject!r}")
             _dbg(f"existential parsed attributes (no preposition): {attributes}")
             return ParsedUtterance(kind="statement", subject=subject, attributes=attributes, raw=raw)
+
+        # Passive voice: "<subject> was/were <past participle> (by <agent>) (in <place>)"
+        passive_copulas = {"was", "were", "is", "are"}
+        irregular_participles = {
+            "born",
+            "known",
+            "made",
+            "given",
+            "taken",
+            "seen",
+            "built",
+            "written",
+            "driven",
+            "created",
+        }
+        for copula in passive_copulas:
+            if copula in tokens[1:-1]:
+                idx = tokens.index(copula)
+                if idx + 1 >= len(tokens):
+                    continue
+                verb_idx = idx + 1
+                if tokens[verb_idx] in {"been", "being"} and verb_idx + 1 < len(tokens):
+                    verb_idx += 1
+                if verb_idx >= len(tokens):
+                    continue
+                verb_token = tokens[verb_idx]
+                verb_case = tokens_case[verb_idx]
+                by_idx = tokens.index("by") if "by" in tokens else -1
+                has_by = by_idx > verb_idx
+                is_participle = verb_token.endswith("ed") or verb_token in irregular_participles
+                if not has_by and not is_participle:
+                    continue
+
+                subject_tokens = tokens_case[:idx]
+                subject_case = _join(subject_tokens).strip()
+                subject = subject_case if subject_case else None
+
+                agent = None
+                if has_by:
+                    agent_tokens_case = tokens_case[by_idx + 1 :]
+                    agent_tokens_lower = tokens[by_idx + 1 :]
+                    agent_head, _ = _head_and_modifiers(agent_tokens_lower)
+                    agent_case = _case_for_head(agent_tokens_case, agent_tokens_lower, agent_head)
+                    agent = agent_case or (agent_head or None)
+
+                loc = None
+                for prep in PREPOSITIONS:
+                    if prep not in tokens:
+                        continue
+                    prep_idx = tokens.index(prep)
+                    if prep_idx <= verb_idx:
+                        continue
+                    if prep == "by":
+                        continue
+                    end_idx = by_idx if has_by and by_idx > prep_idx else len(tokens)
+                    loc_tokens_case = tokens_case[prep_idx + 1 : end_idx]
+                    loc_tokens_lower = tokens[prep_idx + 1 : end_idx]
+                    loc_head, _ = _head_and_modifiers(loc_tokens_lower)
+                    loc_case = _case_for_head(loc_tokens_case, loc_tokens_lower, loc_head)
+                    loc_obj = loc_case or (loc_head or None)
+                    if loc_obj:
+                        loc = (prep, loc_obj)
+                        break
+
+                _dbg("parsed passive voice")
+                _dbg(f"passive subject: {subject!r}")
+                _dbg(f"passive verb: {verb_case!r}")
+                _dbg(f"passive agent: {agent!r}")
+                _dbg(f"passive loc: {loc}")
+                return ParsedUtterance(
+                    kind="statement",
+                    subject=subject,
+                    passive_verb=verb_case,
+                    passive_agent=agent,
+                    passive_patient=subject,
+                    passive_loc=loc,
+                    raw=raw,
+                )
+
+        # Simple active SVO: "<subject> <verb> <object>"
+        if len(tokens) >= 3 and tokens[0] not in {"there"}:
+            if tokens[1] not in COPULAS and tokens[1] not in {"has", "have"} and tokens[1] not in PREPOSITIONS:
+                subject_tokens = tokens_case[:1]
+                verb_token_case = tokens_case[1]
+                object_tokens = tokens_case[2:]
+                subject_case = _join(subject_tokens).strip()
+
+                object_lower = [t.lower() for t in object_tokens]
+                obj_head, obj_modifiers = _head_and_modifiers(object_lower)
+                obj_case = _case_for_head(object_tokens, object_lower, obj_head)
+                obj_modifiers_case = _case_preserve(object_tokens, object_lower, obj_modifiers)
+
+                _dbg("parsed active SVO")
+                _dbg(f"active subject: {subject_case!r}")
+                _dbg(f"active verb: {verb_token_case!r}")
+                _dbg(f"active object: {obj_case!r}")
+                return ParsedUtterance(
+                    kind="statement",
+                    subject=subject_case,
+                    active_verb=verb_token_case,
+                    active_object=obj_case,
+                    active_object_modifiers=obj_modifiers_case,
+                    raw=raw,
+                )
 
         for copula in COPULAS:
             if copula in tokens[1:-1]:

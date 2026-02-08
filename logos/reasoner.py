@@ -114,9 +114,18 @@ class Reasoner:
             return (
                 f"Is '{clarification.term}' #ENTITY, #PROPERTY, #VERB, #RELATION, #LOCATION, #TIME, or #STATE?"
             )
-        base = f"I don't know what '{clarification.term}' means yet."
+        if clarification.role == "lemma":
+            return (
+                f"What is the base form of '{clarification.term}'? "
+                "Use underscores for multi-word verbs (e.g., give_birth)."
+            )
+        if clarification.role == "tense":
+            return f"Is '{clarification.term}' in the present tense or past tense?"
+        if clarification.role == "transitive":
+            return f"Is '{clarification.term}' transitive (takes an object) or intransitive?"
+        base = f"I don't know what '{clarification.term}' means yet or I haven't encountered this word yet."
         context = f" You used it in: {clarification.context}."
-        hint = " Can you define it (e.g., \"X is a kind of Y\"), or give a short example?"
+        hint = " Can you provide the base form of this word, define it (e.g., \"X is a kind of Y\"), or give a short example?"
         return base + context + hint
 
     def small_talk(self) -> str:
