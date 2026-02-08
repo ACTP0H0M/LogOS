@@ -65,6 +65,7 @@ class ParsedUtterance:
     obj: Optional[str] = None
     attributes: List[str] = field(default_factory=list)
     relations: List[Tuple[str, str]] = field(default_factory=list)
+    relation_modifiers: List[List[str]] = field(default_factory=list)
     raw: str = ""
 
 
@@ -490,14 +491,24 @@ def parse_utterance(text: str) -> ParsedUtterance:
             subject_tokens = tokens_case[:idx]
             object_tokens = tokens_case[idx + 1 :]
             subject, attributes = _head_and_modifiers([t.lower() for t in subject_tokens])
-            obj, _ = _head_and_modifiers([t.lower() for t in object_tokens])
+            obj, obj_modifiers = _head_and_modifiers([t.lower() for t in object_tokens])
             subject_case = _join(subject_tokens).strip()
-            obj_case = _join(object_tokens).strip()
+            obj_case = _case_for_head(
+                object_tokens,
+                [t.lower() for t in object_tokens],
+                obj.lower() if obj else None,
+            )
+            obj_modifiers_case = _case_preserve(
+                object_tokens,
+                [t.lower() for t in object_tokens],
+                obj_modifiers,
+            )
             if subject_case and subject_case.lower() != subject:
                 subject = subject_case
-            if obj_case and obj_case.lower() != obj:
+            if obj_case:
                 obj = obj_case
             relations = [("have", obj)] if obj else []
+            relation_modifiers = [obj_modifiers_case] if obj else []
             _dbg(f"parsed subject: {subject!r}")
             _dbg(f"parsed attributes: {attributes}")
             _dbg(f"parsed relations: {relations}")
@@ -506,6 +517,7 @@ def parse_utterance(text: str) -> ParsedUtterance:
                 subject=subject,
                 attributes=attributes,
                 relations=relations,
+                relation_modifiers=relation_modifiers,
                 raw=raw,
             )
 

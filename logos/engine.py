@@ -10,7 +10,19 @@ from uuid import uuid4
 
 from .knowledge import KnowledgeBase
 from .memory_store import EpisodicMemory, MemoryStore, ProceduralMemory
-from .nlp import ParsedUtterance, parse_utterance, tokenize
+from .nlp import (
+    ARTICLES,
+    COPULAS,
+    DEMONSTRATIVES,
+    INTERROGATIVE_ADJ,
+    POSSESSIVE_ADJ,
+    PREPOSITIONS,
+    STOP_WORDS,
+    TEMPORAL_ADVERBS,
+    ParsedUtterance,
+    parse_utterance,
+    tokenize,
+)
 from .reasoner import Reasoner
 from .state import Clarification, ConversationState
 
@@ -32,6 +44,44 @@ _ENGINE_DEBUG = (
 )
 _ENGINE_DEBUG_INDENT: ContextVar[int] = ContextVar("logos_engine_debug_indent", default=0)
 _ENGINE_TRACE_ID: ContextVar[str] = ContextVar("logos_engine_trace_id", default="-")
+
+_PRONOUNS = {
+    "i",
+    "me",
+    "my",
+    "myself",
+    "you",
+    "your",
+    "yourself",
+    "we",
+    "us",
+    "our",
+    "ourselves",
+    "they",
+    "them",
+    "their",
+    "theirs",
+    "themselves",
+    "he",
+    "him",
+    "his",
+    "she",
+    "her",
+    "hers",
+    "it",
+    "its",
+}
+
+_RESERVED_TOKENS = (
+    STOP_WORDS
+    | ARTICLES
+    | COPULAS
+    | DEMONSTRATIVES
+    | INTERROGATIVE_ADJ
+    | POSSESSIVE_ADJ
+    | TEMPORAL_ADVERBS
+    | PREPOSITIONS
+)
 
 
 def _short(text: str, max_len: int = 200) -> str:
@@ -197,16 +247,27 @@ class ChatEngine:
                 subject = possessed
                 _dbg(f"subject rewritten to possessed: {subject!r}")
 
-            subject_symbol = self._knowledge.ensure_symbol(subject, kind="entity")
-            _dbg(f"ensure_symbol(subject) -> id={subject_symbol.id} kind={subject_symbol.kind!r} name={subject_symbol.name!r}")
-            if subject_symbol.id not in new_symbol_ids:
+            unknown_terms = self._unknown_terms(utterance)
+            subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_terms)
+            if subject_symbol:
+                _dbg(
+                    f"ensure_symbol(subject) -> id={subject_symbol.id} kind={subject_symbol.kind!r} name={subject_symbol.name!r}"
+                )
+            if subject_symbol and subject_symbol.id not in new_symbol_ids:
                 new_symbol_ids.append(subject_symbol.id)
             _dbg(f"new_symbol_ids: {new_symbol_ids}")
 
             self._state.remember_topic(subject)
             _dbg(f"remember_topic -> last_topics={self._state.last_topics}")
 
-            unknowns = self._collect_unknowns(subject, utterance, new_symbol_ids, created_links, parse_payload=parse_payload)
+            unknowns = self._collect_unknowns(
+                subject,
+                utterance,
+                new_symbol_ids,
+                created_links,
+                parse_payload=parse_payload,
+                unknown_terms=unknown_terms,
+            )
             _dbg(f"_collect_unknowns -> {len(unknowns)} clarification(s)")
             _dbg(f"created_links: {created_links}")
             _dbg(f"new_symbol_ids: {new_symbol_ids}")
@@ -239,6 +300,7 @@ class ChatEngine:
         new_symbol_ids: List[int],
         created_links: List[int],
         parse_payload: Optional[Dict[str, object]] = None,
+        unknown_terms: Optional[set[str]] = None,
     ) -> List[Clarification]:
         with _dbg_scope("ChatEngine._collect_unknowns()", level=2):
             unknowns: List[Clarification] = []
@@ -248,21 +310,39 @@ class ChatEngine:
                 level=2,
             )
 
+            unknown_terms = unknown_terms or self._unknown_terms(utterance)
+            for term in sorted(unknown_terms):
+                unknowns.append(Clarification(term=term, role="kind", context=utterance.raw))
+            _dbg(f"unknown terms: {sorted(unknown_terms)}", level=2)
+
+            subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_terms)
+            if subject_symbol and subject_symbol.id not in new_symbol_ids:
+                new_symbol_ids.append(subject_symbol.id)
+
             for attr in utterance.attributes:
                 with _dbg_scope(f"attr: {attr!r}", level=2):
                     attr_symbol = self._knowledge.symbol_by_name(attr)
+                    attr_unknown = self._term_is_unknown(attr, unknown_terms) if attr_symbol is None else attr_symbol.kind == "unknown"
                     if not attr_symbol:
-                        inferred = self._infer_kind_from_parse(attr, parse_payload) or "property"
+                        inferred = None if attr_unknown else self._infer_kind_from_parse(attr, parse_payload) or "property"
                         _dbg(f"unknown attr symbol -> ensure_symbol(kind={inferred!r})", level=2)
                         attr_symbol = self._knowledge.ensure_symbol(attr, kind=inferred)
                         new_symbol_ids.append(attr_symbol.id)
-                        link = self._knowledge.add_property(subject, attr, generality=0.1, actuality=0.4)
-                        _dbg(f"add_property low-confidence -> link_id={link.id}", level=2)
                     else:
                         _dbg(f"known attr symbol -> id={attr_symbol.id} kind={attr_symbol.kind!r}", level=2)
-                        link = self._knowledge.add_property(subject, attr, generality=0.4, actuality=0.9)
-                        _dbg(f"add_property high-confidence -> link_id={link.id}", level=2)
-                    created_links.append(link.id)
+
+                    if subject_symbol and attr_symbol:
+                        generality = 0.1 if attr_unknown else 0.4
+                        actuality = 0.4 if attr_unknown else 0.9
+                        link = self._knowledge.add_link(
+                            subject_symbol.id,
+                            attr_symbol.id,
+                            "has_property",
+                            generality=generality,
+                            actuality=actuality,
+                        )
+                        _dbg(f"add_link has_property -> link_id={link.id}", level=2)
+                        created_links.append(link.id)
 
             if utterance.obj:
                 with _dbg_scope("copular object", level=2):
@@ -274,34 +354,47 @@ class ChatEngine:
                     else:
                         _dbg("obj_symbol -> None", level=2)
 
+                    obj_unknown = self._term_is_unknown(obj or "", unknown_terms) if obj_symbol is None else obj_symbol.kind == "unknown"
+
                     if obj_symbol and obj_symbol.kind == "category":
                         link = self._knowledge.add_is_a(subject, obj)
                         created_links.append(link.id)
                         _dbg(f"add_is_a -> link_id={link.id}", level=2)
                     else:
                         if not obj_symbol and obj:
-                            inferred = self._infer_kind_from_parse(obj, parse_payload) or "property"
+                            inferred = None if obj_unknown else self._infer_kind_from_parse(obj, parse_payload) or "property"
                             _dbg(f"unknown obj symbol -> ensure_symbol(kind={inferred!r})", level=2)
                             obj_symbol = self._knowledge.ensure_symbol(obj, kind=inferred)
                             new_symbol_ids.append(obj_symbol.id)
-                            link = self._knowledge.add_is(subject, obj, generality=0.1, actuality=0.4)
-                            _dbg(f"add_is low-confidence -> link_id={link.id}", level=2)
-                        else:
-                            link = self._knowledge.add_is(subject, obj, generality=0.4, actuality=0.9)
-                            _dbg(f"add_is high-confidence -> link_id={link.id}", level=2)
-                        created_links.append(link.id)
+                        if subject_symbol and obj_symbol:
+                            generality = 0.1 if obj_unknown else 0.4
+                            actuality = 0.4 if obj_unknown else 0.9
+                            link = self._knowledge.add_link(
+                                subject_symbol.id,
+                                obj_symbol.id,
+                                "is",
+                                generality=generality,
+                                actuality=actuality,
+                            )
+                            created_links.append(link.id)
+                            _dbg(f"add_link is -> link_id={link.id}", level=2)
 
-            for relation, obj in utterance.relations:
+            relation_modifiers = utterance.relation_modifiers or []
+            for index, (relation, obj) in enumerate(utterance.relations):
                 if not obj:
                     continue
+                modifiers = relation_modifiers[index] if index < len(relation_modifiers) else []
                 with _dbg_scope(f"relation: {relation!r}", level=2):
                     rel = self._normalize_relation(relation)
                     _dbg(f"normalized relation: {rel!r}", level=2)
                     _dbg(f"obj: {obj!r}", level=2)
                     obj_symbol = self._knowledge.symbol_by_name(obj)
+                    obj_unknown = self._term_is_unknown(obj, unknown_terms) if obj_symbol is None else obj_symbol.kind == "unknown"
                     if not obj_symbol:
-                        inferred = self._infer_kind_for_relation_object(rel)
-                        inferred = inferred or self._infer_kind_from_parse(obj, parse_payload) or "entity"
+                        inferred = None if obj_unknown else self._infer_kind_for_relation_object(rel)
+                        inferred = inferred or (None if obj_unknown else self._infer_kind_from_parse(obj, parse_payload)) or (
+                            None if obj_unknown else "entity"
+                        )
                         _dbg(f"unknown relation obj -> ensure_symbol(kind={inferred!r})", level=2)
                         obj_symbol = self._knowledge.ensure_symbol(obj, kind=inferred)
                         new_symbol_ids.append(obj_symbol.id)
@@ -309,10 +402,51 @@ class ChatEngine:
                         relation_actuality = 0.4
                     else:
                         _dbg(f"known relation obj -> id={obj_symbol.id} kind={obj_symbol.kind!r}", level=2)
-                        relation_generality = 0.4
-                        relation_actuality = 0.9
+                        relation_generality = 0.4 if not obj_unknown else 0.1
+                        relation_actuality = 0.9 if not obj_unknown else 0.4
 
-                    if rel == "where_loc" and relation != rel:
+                    if modifiers and obj_symbol:
+                        property_links: List[int] = []
+                        for modifier in modifiers:
+                            mod_symbol = self._knowledge.symbol_by_name(modifier)
+                            mod_unknown = self._term_is_unknown(modifier, unknown_terms) if mod_symbol is None else mod_symbol.kind == "unknown"
+                            if not mod_symbol:
+                                inferred = None if mod_unknown else self._infer_kind_from_parse(modifier, parse_payload) or "property"
+                                mod_symbol = self._knowledge.ensure_symbol(modifier, kind=inferred)
+                                new_symbol_ids.append(mod_symbol.id)
+                            link = self._knowledge.add_link(
+                                obj_symbol.id,
+                                mod_symbol.id,
+                                "is",
+                                generality=relation_generality,
+                                actuality=relation_actuality,
+                            )
+                            created_links.append(link.id)
+                            property_links.append(link.id)
+                            _dbg(f"add_link is (modifier) -> link_id={link.id}", level=2)
+
+                        if property_links:
+                            first_link = self._knowledge.link_by_id(property_links[0])
+                            branch = None
+                            if first_link:
+                                branch = self._knowledge.add_branch(
+                                    [first_link.source, first_link.target],
+                                    [first_link.id],
+                                )
+                                _dbg(f"add_branch (modifier) -> branch_id={branch.id}", level=2)
+                            if branch and subject_symbol:
+                                link = self._knowledge.add_link(
+                                    subject_symbol.id,
+                                    self._knowledge.branch_node_id(branch.id),
+                                    rel,
+                                    generality=relation_generality,
+                                    actuality=relation_actuality,
+                                )
+                                _dbg(f"add_link (to branch) -> link_id={link.id}", level=2)
+                                created_links.append(link.id)
+                            continue
+
+                    if rel == "where_loc" and relation != rel and obj_symbol:
                         prep_symbol = self._knowledge.symbol_by_name(relation)
                         if not prep_symbol:
                             _dbg(f"unknown preposition -> ensure_symbol(kind='relation')", level=2)
@@ -326,27 +460,66 @@ class ChatEngine:
                         )
                         created_links.append(prep_link.id)
                         _dbg(f"add_prep_branch -> branch_id={branch.id} prep_link_id={prep_link.id}", level=2)
-                        link = self._knowledge.add_relation_to_branch(
-                            subject,
-                            rel,
-                            branch.id,
-                            generality=relation_generality,
-                            actuality=relation_actuality,
-                        )
-                        _dbg(f"add_relation (to branch) -> link_id={link.id}", level=2)
+                        if subject_symbol:
+                            link = self._knowledge.add_link(
+                                subject_symbol.id,
+                                self._knowledge.branch_node_id(branch.id),
+                                rel,
+                                generality=relation_generality,
+                                actuality=relation_actuality,
+                            )
+                            _dbg(f"add_link (to branch) -> link_id={link.id}", level=2)
+                            created_links.append(link.id)
                     else:
-                        link = self._knowledge.add_relation(
-                            subject,
-                            rel,
-                            obj,
-                            generality=relation_generality,
-                            actuality=relation_actuality,
-                        )
-                        _dbg(f"add_relation -> link_id={link.id}", level=2)
-                    created_links.append(link.id)
+                        if subject_symbol and obj_symbol:
+                            link = self._knowledge.add_link(
+                                subject_symbol.id,
+                                obj_symbol.id,
+                                rel,
+                                generality=relation_generality,
+                                actuality=relation_actuality,
+                            )
+                            _dbg(f"add_link relation -> link_id={link.id}", level=2)
+                            created_links.append(link.id)
 
             _dbg(f"unknown clarifications generated: {len(unknowns)}", level=2)
             return unknowns
+
+    def _unknown_terms(self, utterance: ParsedUtterance) -> set[str]:
+        tokens = tokenize(utterance.raw or "")
+        unknown: set[str] = set()
+        for token in tokens:
+            if not token:
+                continue
+            if token in _RESERVED_TOKENS or token in _PRONOUNS:
+                continue
+            if token.isdigit():
+                continue
+            symbol = self._knowledge.symbol_by_name(token)
+            if symbol and symbol.kind != "unknown":
+                continue
+            unknown.add(token)
+        return unknown
+
+    def _term_is_unknown(self, term: str, unknown_terms: set[str]) -> bool:
+        if not term:
+            return False
+        for token in tokenize(term):
+            if token in unknown_terms:
+                return True
+        return False
+
+    def _ensure_symbol_optional_kind(
+        self,
+        term: str,
+        kind: Optional[str],
+        unknown_terms: set[str],
+    ) -> Optional[object]:
+        if not term:
+            return None
+        if self._term_is_unknown(term, unknown_terms):
+            return self._knowledge.ensure_symbol(term)
+        return self._knowledge.ensure_symbol(term, kind=kind)
 
     def _learn_definition(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
         with _dbg_scope("ChatEngine._learn_definition()"):
@@ -385,7 +558,15 @@ class ChatEngine:
                 relations=utterance.relations,
                 raw=utterance.raw,
             )
-            unknowns = self._collect_unknowns(subject, extra, new_symbol_ids, created_links, parse_payload=parse_payload)
+            unknown_terms = self._unknown_terms(extra)
+            unknowns = self._collect_unknowns(
+                subject,
+                extra,
+                new_symbol_ids,
+                created_links,
+                parse_payload=parse_payload,
+                unknown_terms=unknown_terms,
+            )
             _dbg(f"_collect_unknowns -> {len(unknowns)} clarification(s)")
 
             event = self._episodic.add_event(utterance.raw, created_links, new_symbol_ids, parse=parse_payload)
@@ -431,6 +612,9 @@ class ChatEngine:
                     _dbg(f"set_symbol_kind({clarification.term!r}) -> id={sym.id} kind={sym.kind!r}")
                 link = self._knowledge.add_is_a(clarification.term, utterance.obj, child_kind=parent_kind)
                 _dbg(f"add_is_a -> link_id={link.id}")
+                if self._state.pending_clarifications:
+                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+                    return f"Got it. {clarification.term} is a kind of {utterance.obj}. {prompt}"
                 return f"Got it. {clarification.term} is a kind of {utterance.obj}."
 
             kind, parent = self._classify_answer(message)
@@ -438,9 +622,12 @@ class ChatEngine:
             if kind:
                 sym = self._knowledge.set_symbol_kind(clarification.term, kind)
                 _dbg(f"set_symbol_kind({clarification.term!r}) -> id={sym.id} kind={sym.kind!r}")
-                if parent:
+                if clarification.role != "kind" and parent:
                     link = self._knowledge.add_is_a(clarification.term, parent)
                     _dbg(f"add_is_a({clarification.term!r}, {parent!r}) -> link_id={link.id}")
+                if self._state.pending_clarifications:
+                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+                    return f"Thanks. I'll treat '{clarification.term}' as a {kind}. {prompt}"
                 return f"Thanks. I'll treat '{clarification.term}' as a {kind}."
 
             _dbg("clarification response not understood -> re-queue")
@@ -510,21 +697,30 @@ class ChatEngine:
         with _dbg_scope("ChatEngine._classify_answer()", level=2):
             _dbg(f"text: {text!r}", level=2)
             lowered = text.lower()
+            if "#relation" in lowered or "relation" in lowered:
+                _dbg("classified: relation/relation", level=2)
+                return "relation", "#RELATION"
+            if "#time" in lowered or "time" in lowered or "temporal" in lowered:
+                _dbg("classified: time/time", level=2)
+                return "time", "#TIME"
+            if "#state" in lowered or "state" in lowered or "condition" in lowered:
+                _dbg("classified: state/state", level=2)
+                return "state", "#STATE"
             if "color" in lowered:
                 _dbg("classified: property/color", level=2)
                 return "property", "color"
             if "property" in lowered or "attribute" in lowered or "quality" in lowered:
                 _dbg("classified: property/property", level=2)
-                return "property", "property"
+                return "property", "#PROPERTY"
             if "place" in lowered or "location" in lowered:
                 _dbg("classified: location/location", level=2)
-                return "location", "location"
+                return "location", "#LOCATION"
             if "action" in lowered or "verb" in lowered:
                 _dbg("classified: action/action", level=2)
-                return "action", "action"
+                return "action", "#VERB"
             if "thing" in lowered or "object" in lowered or "entity" in lowered:
                 _dbg("classified: entity/entity", level=2)
-                return "entity", "entity"
+                return "entity", "#ENTITY"
             _dbg("classified: None", level=2)
             return None, None
 

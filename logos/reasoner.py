@@ -110,6 +110,10 @@ class Reasoner:
         return f"Here are some recent things I learned: {joined}"
 
     def pending_clarification_prompt(self, clarification: Clarification) -> str:
+        if clarification.role == "kind":
+            return (
+                f"Is '{clarification.term}' #ENTITY, #PROPERTY, #VERB, #RELATION, #LOCATION, #TIME, or #STATE?"
+            )
         base = f"I don't know what '{clarification.term}' means yet."
         context = f" You used it in: {clarification.context}."
         hint = " Can you define it (e.g., \"X is a kind of Y\"), or give a short example?"
