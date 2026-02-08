@@ -85,7 +85,7 @@
       const linkTableBody = document.getElementById("linkTableBody");
       const linkTable = document.querySelector(".link-table");
       let linkData = [];
-      let sortState = { key: null, dir: "asc" };
+      let sortState = { key: "created_at", dir: "desc" };
 
       const appendBubble = (text, type) => {
         const bubble = document.createElement("div");
