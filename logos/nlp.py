@@ -62,6 +62,8 @@ def _dbg_scope(title: str):
 class ParsedUtterance:
     kind: str
     subject: Optional[str] = None
+    query_relation: Optional[str] = None
+    query_verb: Optional[str] = None
     obj: Optional[str] = None
     attributes: List[str] = field(default_factory=list)
     relations: List[Tuple[str, str]] = field(default_factory=list)
@@ -197,10 +199,16 @@ def parse_utterance(text: str) -> ParsedUtterance:
         if lowered.endswith("?") or tokens[0] in {"what", "who", "where", "tell"}:
             _dbg("query detected")
             subject = None
+            query_relation = None
+            query_verb = None
             if "about" in tokens:
                 idx = tokens.index("about")
                 _dbg(f"pattern: about @ {idx}")
                 subject = _join(tokens_case[idx + 1 :])
+            elif tokens[0] == "where" and len(tokens) >= 3 and tokens[1] in COPULAS:
+                _dbg("pattern: where is/are <X>")
+                subject = _join(tokens_case[2:])
+                query_relation = "where_loc"
             elif tokens[0] in {"what", "who"} and "is" in tokens:
                 idx = tokens.index("is")
                 _dbg(f"pattern: {tokens[0]} is @ {idx}")
@@ -217,11 +225,29 @@ def parse_utterance(text: str) -> ParsedUtterance:
             elif tokens[:2] == ["who", "are"] and len(tokens) >= 3:
                 _dbg("pattern: who are <X>")
                 subject = tokens_case[2]
+            elif tokens[:2] == ["who", "did"] and len(tokens) >= 4:
+                _dbg("pattern: who did <verb> <X>")
+                query_relation = "who_did"
+                query_verb = tokens_case[2]
+                subject = _join(tokens_case[3:])
+            elif tokens[0] == "who" and len(tokens) >= 3 and tokens[1] not in COPULAS:
+                _dbg("pattern: who <verb> <X>")
+                query_relation = "who_did"
+                query_verb = tokens_case[1]
+                subject = _join(tokens_case[2:])
             else:
                 _dbg("pattern: fallback (last token)")
                 subject = tokens_case[-1]
             _dbg(f"query subject: {subject!r}")
-            return ParsedUtterance(kind="query", subject=subject, raw=raw)
+            _dbg(f"query relation: {query_relation!r}")
+            _dbg(f"query verb: {query_verb!r}")
+            return ParsedUtterance(
+                kind="query",
+                subject=subject,
+                query_relation=query_relation,
+                query_verb=query_verb,
+                raw=raw,
+            )
 
         # Existential "There is/are ..." should be handled before generic copular parsing.
         if tokens[0] == "there" and len(tokens) > 2 and tokens[1] in {"is", "are"}:
@@ -371,11 +397,32 @@ def parse_utterance(text: str) -> ParsedUtterance:
 
         # Simple active SVO: "<subject> <verb> <object>"
         if len(tokens) >= 3 and tokens[0] not in {"there"}:
-            if tokens[1] not in COPULAS and tokens[1] not in {"has", "have"} and tokens[1] not in PREPOSITIONS:
-                subject_tokens = tokens_case[:1]
-                verb_token_case = tokens_case[1]
-                object_tokens = tokens_case[2:]
-                subject_case = _join(subject_tokens).strip()
+            subject_token_count = 1
+            if (
+                len(tokens) >= 4
+                and (tokens[0] in ARTICLES or tokens[0] in DEMONSTRATIVES or tokens[0] in POSSESSIVE_ADJ)
+            ):
+                subject_token_count = 2
+
+            verb_idx = subject_token_count
+            if len(tokens) >= verb_idx + 2 and (
+                not any(token in COPULAS for token in tokens[1:])
+                and
+                tokens[verb_idx] not in COPULAS
+                and tokens[verb_idx] not in {"has", "have"}
+                and tokens[verb_idx] not in PREPOSITIONS
+            ):
+                subject_tokens = tokens_case[:subject_token_count]
+                subject_tokens_lower = tokens[:subject_token_count]
+                verb_token_case = tokens_case[verb_idx]
+                object_tokens = tokens_case[verb_idx + 1 :]
+
+                subject_head, _ = _head_and_modifiers(subject_tokens_lower)
+                subject_case = _case_for_head(subject_tokens, subject_tokens_lower, subject_head)
+                if subject_tokens_lower and subject_tokens_lower[0] in POSSESSIVE_ADJ and subject_case:
+                    subject_case = f"{subject_tokens[0]} {subject_case}"
+                if not subject_case:
+                    subject_case = _join(subject_tokens).strip()
 
                 object_lower = [t.lower() for t in object_tokens]
                 obj_head, obj_modifiers = _head_and_modifiers(object_lower)
@@ -523,7 +570,7 @@ def parse_utterance(text: str) -> ParsedUtterance:
 
                             if loc:
                                 relations.append((prep, loc))
-                            attributes = [mod for mod in obj_modifiers if mod]
+                            attributes = [mod for mod in subject_modifiers if mod] + [mod for mod in obj_modifiers if mod]
                             _dbg(f"relations: {relations}")
                             _dbg(f"attributes: {attributes}")
                             if obj and had_article:

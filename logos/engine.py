@@ -181,7 +181,11 @@ class ChatEngine:
                 elif utterance.kind == "query":
                     resolved = self._resolve_query_subject(utterance.subject)
                     _dbg(f"resolved query subject: {resolved!r}")
-                    reply = self._reasoner.respond_to_query(resolved)
+                    reply = self._reasoner.respond_to_query(
+                        resolved,
+                        relation=utterance.query_relation,
+                        verb=utterance.query_verb,
+                    )
                 else:
                     reply = self._reasoner.small_talk()
 
@@ -252,6 +256,11 @@ class ChatEngine:
                 _dbg(f"subject rewritten to possessed: {subject!r}")
 
             unknown_terms = self._unknown_terms(utterance)
+            unknowns = self._unknown_clarifications(utterance, unknown_terms)
+            if unknowns:
+                _dbg(f"deferring learning until clarifications are answered: {len(unknowns)} prompt(s)")
+                return self._queue_unknown_clarifications(unknowns)
+
             unknown_set = set(unknown_terms)
             subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_set)
             if subject_symbol:
@@ -287,12 +296,7 @@ class ChatEngine:
             _dbg("knowledge.decay_links(rate=0.01)")
 
             if unknowns:
-                for clarification in unknowns:
-                    _dbg(f"queue clarification -> term={clarification.term!r} role={clarification.role!r} context={clarification.context!r}")
-                    self._state.queue_clarification(clarification)
-                prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
-                _dbg(f"pending clarification prompt: {_short(prompt)!r}")
-                return prompt
+                return self._queue_unknown_clarifications(unknowns)
 
             ack = self._acknowledge_statement(subject, utterance)
             _dbg(f"acknowledge: {_short(ack)!r}")
@@ -315,22 +319,10 @@ class ChatEngine:
                 level=2,
             )
 
-            unknown_terms = unknown_terms or self._unknown_terms(utterance)
+            if unknown_terms is None:
+                unknown_terms = self._unknown_terms(utterance)
             unknown_set = set(unknown_terms)
-            for term in unknown_terms:
-                unknowns.append(Clarification(term=term, role="kind", context=utterance.raw))
-                if (
-                    utterance.passive_verb
-                    and term.lower() == utterance.passive_verb.lower()
-                    and self._needs_lemma(utterance.passive_verb)
-                ):
-                    unknowns.append(Clarification(term=utterance.passive_verb, role="lemma", context=utterance.raw))
-                if utterance.active_verb and term.lower() == utterance.active_verb.lower():
-                    meta = self._knowledge.verb_meta(term)
-                    if not meta.get("tense"):
-                        unknowns.append(Clarification(term=term, role="tense", context=utterance.raw))
-                    if meta.get("transitive") is None:
-                        unknowns.append(Clarification(term=term, role="transitive", context=utterance.raw))
+            unknowns.extend(self._unknown_clarifications(utterance, unknown_terms))
             _dbg(f"unknown terms: {sorted(unknown_terms)}", level=2)
 
             subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_set)
@@ -551,6 +543,63 @@ class ChatEngine:
             return self._knowledge.ensure_symbol(term)
         return self._knowledge.ensure_symbol(term, kind=kind)
 
+    def _unknown_clarifications(
+        self,
+        utterance: ParsedUtterance,
+        unknown_terms: Optional[List[str]] = None,
+    ) -> List[Clarification]:
+        if unknown_terms is None:
+            unknown_terms = self._unknown_terms(utterance)
+        unknowns: List[Clarification] = []
+        for term in unknown_terms:
+            unknowns.append(Clarification(term=term, role="kind", context=utterance.raw))
+            if (
+                utterance.passive_verb
+                and term.lower() == utterance.passive_verb.lower()
+                and self._needs_lemma(utterance.passive_verb)
+            ):
+                unknowns.append(Clarification(term=utterance.passive_verb, role="lemma", context=utterance.raw))
+            if utterance.active_verb and term.lower() == utterance.active_verb.lower():
+                meta = self._knowledge.verb_meta(term)
+                if not meta.get("tense"):
+                    unknowns.append(Clarification(term=term, role="tense", context=utterance.raw))
+                if meta.get("transitive") is None:
+                    unknowns.append(Clarification(term=term, role="transitive", context=utterance.raw))
+        return unknowns
+
+    def _queue_unknown_clarifications(self, unknowns: List[Clarification]) -> str:
+        for clarification in unknowns:
+            _dbg(
+                "queue clarification -> "
+                f"term={clarification.term!r} role={clarification.role!r} context={clarification.context!r}"
+            )
+            self._state.queue_clarification(clarification)
+        prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+        _dbg(f"pending clarification prompt: {_short(prompt)!r}")
+        return prompt
+
+    def _resume_after_clarification(self, clarification: Clarification, reply: str) -> str:
+        if self._state.pending_clarifications:
+            prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
+            return f"{reply} {prompt}"
+
+        context = (clarification.context or "").strip()
+        if not context:
+            return reply
+
+        with _dbg_scope("replay clarified context"):
+            _dbg(f"context: {_short(context)!r}")
+            replay = parse_utterance(context)
+            _dbg(f"replay kind: {replay.kind!r}")
+
+        if replay.kind == "definition":
+            follow_up = self._learn_definition(replay)
+            return f"{reply} {follow_up}"
+        if replay.kind == "statement":
+            follow_up = self._learn_statement(replay)
+            return f"{reply} {follow_up}"
+        return reply
+
     def _learn_definition(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
         with _dbg_scope("ChatEngine._learn_definition()"):
             _dbg(
@@ -639,10 +688,7 @@ class ChatEngine:
                 self._knowledge.add_alias(verb_symbol.name, clarification.term)
                 self._knowledge.set_verb_meta(verb_symbol.name, lemma=verb_symbol.name)
                 reply = f"Got it. The base form of '{clarification.term}' is '{verb_symbol.name}'."
-                if self._state.pending_clarifications:
-                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
-                    return f"{reply} {prompt}"
-                return reply
+                return self._resume_after_clarification(clarification, reply)
 
             if clarification.role == "tense":
                 lowered = message.lower()
@@ -656,10 +702,7 @@ class ChatEngine:
                     return "Is it in the present tense or past tense?"
                 self._knowledge.set_verb_meta(clarification.term, tense=tense)
                 reply = f"Okay, I'll treat '{clarification.term}' as {tense} tense."
-                if self._state.pending_clarifications:
-                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
-                    return f"{reply} {prompt}"
-                return reply
+                return self._resume_after_clarification(clarification, reply)
 
             if clarification.role == "transitive":
                 lowered = message.lower()
@@ -674,10 +717,7 @@ class ChatEngine:
                 self._knowledge.set_verb_meta(clarification.term, transitive=transitive)
                 label = "transitive" if transitive else "intransitive"
                 reply = f"Okay, I'll treat '{clarification.term}' as {label}."
-                if self._state.pending_clarifications:
-                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
-                    return f"{reply} {prompt}"
-                return reply
+                return self._resume_after_clarification(clarification, reply)
 
             with _dbg_scope("parse_utterance(message)"):
                 utterance = parse_utterance(message)
@@ -691,10 +731,8 @@ class ChatEngine:
                     _dbg(f"set_symbol_kind({clarification.term!r}) -> id={sym.id} kind={sym.kind!r}")
                 link = self._knowledge.add_is_a(clarification.term, utterance.obj, child_kind=parent_kind)
                 _dbg(f"add_is_a -> link_id={link.id}")
-                if self._state.pending_clarifications:
-                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
-                    return f"Got it. {clarification.term} is a kind of {utterance.obj}. {prompt}"
-                return f"Got it. {clarification.term} is a kind of {utterance.obj}."
+                reply = f"Got it. {clarification.term} is a kind of {utterance.obj}."
+                return self._resume_after_clarification(clarification, reply)
 
             kind, parent = self._classify_answer(message)
             _dbg(f"classify_answer -> kind={kind!r} parent={parent!r}")
@@ -704,10 +742,8 @@ class ChatEngine:
                 if clarification.role != "kind" and parent:
                     link = self._knowledge.add_is_a(clarification.term, parent)
                     _dbg(f"add_is_a({clarification.term!r}, {parent!r}) -> link_id={link.id}")
-                if self._state.pending_clarifications:
-                    prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
-                    return f"Thanks. I'll treat '{clarification.term}' as a {kind}. {prompt}"
-                return f"Thanks. I'll treat '{clarification.term}' as a {kind}."
+                reply = f"Thanks. I'll treat '{clarification.term}' as a {kind}."
+                return self._resume_after_clarification(clarification, reply)
 
             _dbg("clarification response not understood -> re-queue")
             self._state.queue_clarification(clarification)
@@ -938,9 +974,14 @@ class ChatEngine:
             if not verb or not patient:
                 return "I could not parse that passive statement."
 
+            unknown_terms = self._unknown_terms(utterance)
+            unknowns = self._unknown_clarifications(utterance, unknown_terms)
+            if unknowns:
+                _dbg(f"deferring passive learning until clarifications are answered: {len(unknowns)} prompt(s)")
+                return self._queue_unknown_clarifications(unknowns)
+
             new_symbol_ids: List[int] = []
             created_links: List[int] = []
-            unknown_terms = self._unknown_terms(utterance)
             unknown_set = set(unknown_terms)
 
             agent_symbol = self._ensure_symbol_optional_kind(agent, "entity", unknown_set)
@@ -1013,10 +1054,7 @@ class ChatEngine:
             self._state.last_utterance = utterance.raw
 
             if unknowns:
-                for clarification in unknowns:
-                    self._state.queue_clarification(clarification)
-                prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
-                return prompt
+                return self._queue_unknown_clarifications(unknowns)
 
             return "Understood."
 
@@ -1036,9 +1074,14 @@ class ChatEngine:
             if not subject or not verb or not obj:
                 return "I could not parse that statement."
 
+            unknown_terms = self._unknown_terms(utterance)
+            unknowns = self._unknown_clarifications(utterance, unknown_terms)
+            if unknowns:
+                _dbg(f"deferring active learning until clarifications are answered: {len(unknowns)} prompt(s)")
+                return self._queue_unknown_clarifications(unknowns)
+
             new_symbol_ids: List[int] = []
             created_links: List[int] = []
-            unknown_terms = self._unknown_terms(utterance)
             unknown_set = set(unknown_terms)
 
             subject_symbol = self._ensure_symbol_optional_kind(subject, "entity", unknown_set)
@@ -1118,10 +1161,7 @@ class ChatEngine:
             self._state.last_utterance = utterance.raw
 
             if unknowns:
-                for clarification in unknowns:
-                    self._state.queue_clarification(clarification)
-                prompt = self._reasoner.pending_clarification_prompt(self._state.next_clarification())
-                return prompt
+                return self._queue_unknown_clarifications(unknowns)
 
             return "Understood."
 
