@@ -20,6 +20,10 @@ class ConversationState:
     pending_clarifications: List[Clarification] = field(default_factory=list)
     last_added_links: List[int] = field(default_factory=list)
     last_utterance: str | None = None
+    internal_question_pause_turns: int = 0
+    suppressed_problem_type: str | None = None
+    suppressed_problem_type_turns: int = 0
+    last_curiosity_problem_type: str | None = None
 
     def remember_topic(self, topic: str) -> None:
         if topic and topic not in self.last_topics:

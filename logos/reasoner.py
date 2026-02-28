@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -98,6 +99,11 @@ class Reasoner:
         self._state = state
         self._trust_in_new = 0.6
         self._used_curiosity_texts: List[str] = []
+        self._reasoner_debug_level = self._parse_int_env("LOGOS_REASONER_DEBUG_LEVEL", 1)
+        self._reasoner_debug = (
+            self._reasoner_debug_level > 0
+            and os.getenv("LOGOS_REASONER_DEBUG", "1").strip().lower() not in {"", "0", "false", "no", "off"}
+        )
 
     def respond_to_query(self, subject: str, relation: Optional[str] = None, verb: Optional[str] = None) -> str:
         if not subject:
@@ -322,73 +328,143 @@ class Reasoner:
         joined = "; ".join(lines)
         return f"Here are some recent things I learned: {joined}"
 
+    def _parse_int_env(self, name: str, default: int) -> int:
+        raw = os.getenv(name, "").strip()
+        if not raw:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            return default
+
+    def _rdbg(self, message: str, level: int = 1) -> None:
+        if not self._reasoner_debug or level > self._reasoner_debug_level:
+            return
+        print(f"[reasoner] {message}")
+
+    def _problem_ctor_dump(self, problem: Problem) -> str:
+        return (
+            "Problem("
+            f"type={problem.type!r}, "
+            f"severity={problem.severity:.3f}, "
+            f"internal={problem.internal}, "
+            f"link_ids={problem.link_ids}, "
+            f"node_ids={problem.node_ids}, "
+            f"solved={problem.solved}"
+            ")"
+        )
+
     def find_internal_problems(self, actuality_min: float = 0.2) -> List[Problem]:
         """Port of Java ProblemFinder internal heuristics over the current KnowledgeBase."""
+        self._rdbg(f"find_internal_problems(actuality_min={actuality_min})", level=1)
         problems: List[Problem] = []
         seen: set[Tuple[str, Tuple[int, ...], Tuple[int, ...]]] = set()
 
         actual_nodes = self._actual_nodes(actuality_min)
+        self._rdbg(f"actual_nodes={len(actual_nodes)} -> {actual_nodes}", level=1)
         for node_id in actual_nodes:
             outlinks = self._knowledge.links_from(node_id)
+            self._rdbg(
+                f"scan node id={node_id} label={self._knowledge.node_label(node_id, wrap_branch=False)!r} outlinks={len(outlinks)}",
+                level=2,
+            )
             for link in outlinks:
                 if self._skip_problem_link_target(link):
+                    self._rdbg(
+                        "skip link for problem scan "
+                        f"(link_id={link.id}, relation={link.relation!r}, target={self._knowledge.node_label(link.target, wrap_branch=False)!r})",
+                        level=3,
+                    )
                     continue
 
                 contradictions = self._contradicting_links(link, outlinks)
                 if contradictions:
                     contra = contradictions[0]
+                    problem = Problem(
+                        type="CONTRADICTION",
+                        severity=self._severity("CONTRADICTION"),
+                        internal=True,
+                        link_ids=[link.id, contra.id],
+                    )
                     self._add_problem(
                         problems,
                         seen,
-                        Problem(
-                            type="CONTRADICTION",
-                            severity=self._severity("CONTRADICTION"),
-                            internal=True,
-                            link_ids=[link.id, contra.id],
-                        ),
+                        problem,
+                        reason="same source has opposite-sign links with identical relation and target",
+                        context={
+                            "node_id": node_id,
+                            "node_label": self._knowledge.node_label(node_id, wrap_branch=False),
+                            "link_id": link.id,
+                            "contra_link_id": contra.id,
+                        },
                     )
 
                 if not link.evidence:
+                    problem = Problem(
+                        type="UNKNOWN_REASON",
+                        severity=self._severity("UNKNOWN_REASON"),
+                        internal=True,
+                        link_ids=[link.id],
+                    )
                     self._add_problem(
                         problems,
                         seen,
-                        Problem(
-                            type="UNKNOWN_REASON",
-                            severity=self._severity("UNKNOWN_REASON"),
-                            internal=True,
-                            link_ids=[link.id],
-                        ),
+                        problem,
+                        reason="link has no evidence chain",
+                        context={
+                            "node_id": node_id,
+                            "node_label": self._knowledge.node_label(node_id, wrap_branch=False),
+                            "link_id": link.id,
+                            "relation": link.relation,
+                        },
                     )
 
                 if link.relation == "task_link" and link.generality > 0:
                     missing = self._missing_task_resources(link)
                     if missing:
+                        problem = Problem(
+                            type="MISSING_RESOURCE",
+                            severity=self._severity("MISSING_RESOURCE"),
+                            internal=True,
+                            link_ids=[link.id],
+                            node_ids=missing,
+                        )
                         self._add_problem(
                             problems,
                             seen,
-                            Problem(
-                                type="MISSING_RESOURCE",
-                                severity=self._severity("MISSING_RESOURCE"),
-                                internal=True,
-                                link_ids=[link.id],
-                                node_ids=missing,
-                            ),
+                            problem,
+                            reason="task requires resources actor does not have",
+                            context={
+                                "node_id": node_id,
+                                "task_link_id": link.id,
+                                "missing_nodes": missing,
+                            },
                         )
                     if not self._positive_links_by_name(self._knowledge.links_from(link.target), "method_link"):
+                        problem = Problem(
+                            type="UNKNOWN_METHOD",
+                            severity=self._severity("UNKNOWN_METHOD"),
+                            internal=True,
+                            node_ids=[link.target],
+                        )
                         self._add_problem(
                             problems,
                             seen,
-                            Problem(
-                                type="UNKNOWN_METHOD",
-                                severity=self._severity("UNKNOWN_METHOD"),
-                                internal=True,
-                                node_ids=[link.target],
-                            ),
+                            problem,
+                            reason="task exists but no positive method_link found",
+                            context={
+                                "node_id": node_id,
+                                "task_target_node": link.target,
+                                "task_target_label": self._knowledge.node_label(link.target, wrap_branch=False),
+                            },
                         )
 
             self._find_node_level_problems(node_id, outlinks, problems, seen)
 
         problems.sort(key=lambda p: (-p.severity, p.type, tuple(sorted(p.link_ids)), tuple(sorted(p.node_ids))))
+        self._rdbg(f"find_internal_problems -> total={len(problems)}", level=1)
+        for index, problem in enumerate(problems):
+            self._rdbg(f"problem[{index}] {self._problem_ctor_dump(problem)}", level=1)
         return problems
 
     def solve_problem(self, problem: Problem) -> Thought:
@@ -498,10 +574,28 @@ class Reasoner:
         thought.text = "I have no methods for solving this problem yet."
         return thought
 
-    def next_curiosity_thought(self, actuality_min: float = 0.2) -> Optional[Thought]:
+    def next_curiosity_thought(
+        self,
+        actuality_min: float = 0.2,
+        blocked_types: Optional[Sequence[str]] = None,
+    ) -> Optional[Thought]:
         problems = self.find_internal_problems(actuality_min=actuality_min)
         if not problems:
             return None
+        # Keep an explicit local ordering by severity, even though find_internal_problems
+        # already returns a severity-sorted list.
+        problems = sorted(
+            problems,
+            key=lambda p: (-p.severity, p.type, tuple(sorted(p.link_ids)), tuple(sorted(p.node_ids))),
+        )
+        if blocked_types:
+            blocked = {name for name in blocked_types if name}
+            if blocked:
+                self._rdbg(f"curiosity blocked_types={sorted(blocked)}", level=1)
+                problems = [problem for problem in problems if problem.type not in blocked]
+                if not problems:
+                    self._rdbg("curiosity: all candidate problems were blocked", level=1)
+                    return None
 
         first_repeat: Optional[Thought] = None
         for problem in problems:
@@ -518,8 +612,8 @@ class Reasoner:
                 first_repeat = thought
         return first_repeat
 
-    def curiosity_prompt(self, actuality_min: float = 0.2) -> Optional[str]:
-        thought = self.next_curiosity_thought(actuality_min=actuality_min)
+    def curiosity_prompt(self, actuality_min: float = 0.2, blocked_types: Optional[Sequence[str]] = None) -> Optional[str]:
+        thought = self.next_curiosity_thought(actuality_min=actuality_min, blocked_types=blocked_types)
         if not thought or not thought.text:
             return None
         return thought.text
@@ -539,12 +633,26 @@ class Reasoner:
         problems: List[Problem],
         seen: set[Tuple[str, Tuple[int, ...], Tuple[int, ...]]],
         problem: Problem,
+        reason: Optional[str] = None,
+        context: Optional[Dict[str, object]] = None,
     ) -> None:
         sig = self._problem_signature(problem)
         if sig in seen:
+            if reason:
+                extra = f", context={context}" if context else ""
+                self._rdbg(
+                    f"duplicate problem ignored: {self._problem_ctor_dump(problem)} | reason={reason}{extra}",
+                    level=2,
+                )
             return
         seen.add(sig)
         problems.append(problem)
+        if reason:
+            extra = f", context={context}" if context else ""
+            self._rdbg(
+                f"problem triggered: {self._problem_ctor_dump(problem)} | reason={reason}{extra}",
+                level=1,
+            )
 
     def _actual_nodes(self, actuality_min: float) -> List[int]:
         node_ids: set[int] = set()
@@ -607,23 +715,39 @@ class Reasoner:
         seen: set[Tuple[str, Tuple[int, ...], Tuple[int, ...]]],
     ) -> None:
         if self._is_meta_ontology_node(node_id) or self._is_curiosity_builtin_node(node_id):
+            self._rdbg(
+                f"skip node-level checks for node id={node_id} label={self._knowledge.node_label(node_id, wrap_branch=False)!r} "
+                "(meta ontology or curiosity builtin)",
+                level=3,
+            )
             return
         is_branch = self._knowledge.is_branch_node(node_id)
         is_entity = self._node_has_category(node_id, "#ENTITY")
         is_verb = self._node_has_category(node_id, "#VERB")
+        branch = self._knowledge.branch_by_node_id(node_id) if is_branch else None
+        is_prep_connector_branch = bool(branch and self._branch_is_prep_connector(branch))
+        node_label = self._knowledge.node_label(node_id, wrap_branch=False)
+        self._rdbg(
+            f"node-level checks for node id={node_id} label={node_label!r} "
+            f"(is_branch={is_branch}, is_entity={is_entity}, is_verb={is_verb})",
+            level=2,
+        )
 
         if is_branch or is_verb:
             has_purpose = any(lk.relation == "in_order_to" and lk.generality > 0 for lk in outlinks)
             if not has_purpose:
+                problem = Problem(
+                    type="UNKNOWN_PURPOSE",
+                    severity=self._severity("UNKNOWN_PURPOSE"),
+                    internal=True,
+                    node_ids=[node_id],
+                )
                 self._add_problem(
                     problems,
                     seen,
-                    Problem(
-                        type="UNKNOWN_PURPOSE",
-                        severity=self._severity("UNKNOWN_PURPOSE"),
-                        internal=True,
-                        node_ids=[node_id],
-                    ),
+                    problem,
+                    reason="branch/verb has no positive in_order_to link",
+                    context={"node_id": node_id, "node_label": node_label},
                 )
 
         if is_entity:
@@ -635,127 +759,159 @@ class Reasoner:
                 and self._knowledge.node_label(lk.target, wrap_branch=False) != "#ENTITY"
             ]
             if not positive_is_a:
+                problem = Problem(
+                    type="NO_INHERITANCE",
+                    severity=self._severity("NO_INHERITANCE"),
+                    internal=True,
+                    node_ids=[node_id],
+                )
                 self._add_problem(
                     problems,
                     seen,
-                    Problem(
-                        type="NO_INHERITANCE",
-                        severity=self._severity("NO_INHERITANCE"),
-                        internal=True,
-                        node_ids=[node_id],
-                    ),
+                    problem,
+                    reason="entity has no positive non-#ENTITY is_a parent",
+                    context={"node_id": node_id, "node_label": node_label},
                 )
 
             if not any(lk.relation == "is" for lk in outlinks):
+                problem = Problem(
+                    type="NO_DESCRIPTIONS",
+                    severity=self._severity("NO_DESCRIPTIONS"),
+                    internal=True,
+                    node_ids=[node_id],
+                )
                 self._add_problem(
                     problems,
                     seen,
-                    Problem(
-                        type="NO_DESCRIPTIONS",
-                        severity=self._severity("NO_DESCRIPTIONS"),
-                        internal=True,
-                        node_ids=[node_id],
-                    ),
+                    problem,
+                    reason="entity has no 'is' description links",
+                    context={"node_id": node_id, "node_label": node_label},
                 )
 
         if is_verb:
-            name = self._knowledge.node_label(node_id, wrap_branch=False).lower()
+            name = node_label.lower()
             if name not in self._UNINFORMATIVE_VERBS:
                 has_req = any(lk.relation == "is_needed_to" for lk in self._knowledge.links_to(node_id))
                 if not has_req:
+                    problem = Problem(
+                        type="UNKNOWN_ACTION_REQUIREMENTS",
+                        severity=self._severity("UNKNOWN_ACTION_REQUIREMENTS"),
+                        internal=True,
+                        node_ids=[node_id],
+                    )
                     self._add_problem(
                         problems,
                         seen,
-                        Problem(
-                            type="UNKNOWN_ACTION_REQUIREMENTS",
-                            severity=self._severity("UNKNOWN_ACTION_REQUIREMENTS"),
-                            internal=True,
-                            node_ids=[node_id],
-                        ),
+                        problem,
+                        reason="verb has no is_needed_to prerequisites",
+                        context={"node_id": node_id, "node_label": node_label},
                     )
 
         if is_branch:
-            branch = self._knowledge.branch_by_node_id(node_id)
             if branch and self._branch_contains_relation(branch, {"do", "did"}, positive_only=True):
                 has_req = any(lk.relation == "is_needed_to" for lk in self._knowledge.links_to(node_id))
                 if not has_req:
+                    problem = Problem(
+                        type="UNKNOWN_ACTION_REQUIREMENTS",
+                        severity=self._severity("UNKNOWN_ACTION_REQUIREMENTS"),
+                        internal=True,
+                        node_ids=[node_id],
+                    )
                     self._add_problem(
                         problems,
                         seen,
-                        Problem(
-                            type="UNKNOWN_ACTION_REQUIREMENTS",
-                            severity=self._severity("UNKNOWN_ACTION_REQUIREMENTS"),
-                            internal=True,
-                            node_ids=[node_id],
-                        ),
+                        problem,
+                        reason="action branch (do/did) has no is_needed_to prerequisites",
+                        context={"node_id": node_id, "node_label": node_label},
                     )
 
         if (is_entity or is_branch) and not is_verb:
             if not self._node_has_location(node_id, outlinks, for_verb=False):
+                problem = Problem(
+                    type="UNKNOWN_PLACE",
+                    severity=self._severity("UNKNOWN_PLACE"),
+                    internal=True,
+                    node_ids=[node_id],
+                )
                 self._add_problem(
                     problems,
                     seen,
-                    Problem(
-                        type="UNKNOWN_PLACE",
-                        severity=self._severity("UNKNOWN_PLACE"),
-                        internal=True,
-                        node_ids=[node_id],
-                    ),
+                    problem,
+                    reason="entity/branch has no detectable location link",
+                    context={"node_id": node_id, "node_label": node_label, "for_verb": False},
                 )
 
         if is_verb:
             if not self._node_has_location(node_id, outlinks, for_verb=True):
+                problem = Problem(
+                    type="UNKNOWN_PLACE",
+                    severity=self._severity("UNKNOWN_PLACE"),
+                    internal=True,
+                    node_ids=[node_id],
+                )
                 self._add_problem(
                     problems,
                     seen,
-                    Problem(
-                        type="UNKNOWN_PLACE",
-                        severity=self._severity("UNKNOWN_PLACE"),
-                        internal=True,
-                        node_ids=[node_id],
-                    ),
+                    problem,
+                    reason="verb has no detectable location context",
+                    context={"node_id": node_id, "node_label": node_label, "for_verb": True},
                 )
 
         if is_entity or is_branch:
             if not self._node_has_property(node_id, outlinks):
+                problem = Problem(
+                    type="UNKNOWN_PROPERTY",
+                    severity=self._severity("UNKNOWN_PROPERTY"),
+                    internal=True,
+                    node_ids=[node_id],
+                )
                 self._add_problem(
                     problems,
                     seen,
-                    Problem(
-                        type="UNKNOWN_PROPERTY",
-                        severity=self._severity("UNKNOWN_PROPERTY"),
-                        internal=True,
-                        node_ids=[node_id],
-                    ),
+                    problem,
+                    reason="entity/branch has no known property links",
+                    context={"node_id": node_id, "node_label": node_label},
                 )
 
         if is_verb:
             has_object = any(lk.relation in {"what", "whom"} for lk in outlinks)
             if not has_object:
+                problem = Problem(
+                    type="UNKNOWN_OBJECT",
+                    severity=self._severity("UNKNOWN_OBJECT"),
+                    internal=True,
+                    node_ids=[node_id],
+                )
                 self._add_problem(
                     problems,
                     seen,
-                    Problem(
-                        type="UNKNOWN_OBJECT",
-                        severity=self._severity("UNKNOWN_OBJECT"),
-                        internal=True,
-                        node_ids=[node_id],
-                    ),
+                    problem,
+                    reason="verb has no explicit what/whom object links",
+                    context={"node_id": node_id, "node_label": node_label},
                 )
 
         if is_entity or is_branch:
-            has_action = any(lk.relation in {"do", "did"} for lk in outlinks)
-            if not has_action:
-                self._add_problem(
-                    problems,
-                    seen,
-                    Problem(
+            if is_prep_connector_branch:
+                self._rdbg(
+                    f"skip UNKNOWN_ACTION for prep-connector branch node id={node_id} label={node_label!r}",
+                    level=2,
+                )
+            else:
+                has_action = any(lk.relation in {"do", "did"} for lk in outlinks)
+                if not has_action:
+                    problem = Problem(
                         type="UNKNOWN_ACTION",
                         severity=self._severity("UNKNOWN_ACTION"),
                         internal=True,
                         node_ids=[node_id],
-                    ),
-                )
+                    )
+                    self._add_problem(
+                        problems,
+                        seen,
+                        problem,
+                        reason="entity/branch has no do/did action links",
+                        context={"node_id": node_id, "node_label": node_label},
+                    )
 
     def _node_has_category(self, node_id: int, category_name: str) -> bool:
         if self._knowledge.is_branch_node(node_id):
@@ -807,7 +963,28 @@ class Reasoner:
                 return True
         return False
 
+    def _branch_is_prep_connector(self, branch: Branch) -> bool:
+        if not branch.links:
+            return False
+        for link_id in branch.links:
+            link = self._knowledge.link_by_id(link_id)
+            if not link or link.relation != "prep":
+                return False
+        return True
+
     def _node_has_location(self, node_id: int, outlinks: List[Link], *, for_verb: bool) -> bool:
+        # Branches like "(shelf prep on)" are location encodings themselves; do not
+        # ask for another location for that wrapper branch.
+        if not for_verb and self._knowledge.is_branch_node(node_id):
+            branch = self._knowledge.branch_by_node_id(node_id)
+            if branch and self._branch_has_spatial_prep(branch):
+                self._rdbg(
+                    f"node id={node_id} label={self._knowledge.node_label(node_id, wrap_branch=False)!r} "
+                    "already encodes a spatial location branch",
+                    level=2,
+                )
+                return True
+
         for lk in outlinks:
             if lk.generality <= 0:
                 continue
@@ -1003,3 +1180,5 @@ class Reasoner:
             "That sounds interesting. I am still learning, so please tell me a simple fact, "
             "ask a question, or define a term."
         )
+
+

@@ -156,6 +156,7 @@ class ChatEngine:
             _dbg(f"recent topics: {self._state.last_topics}")
 
             reply = ""
+            used_small_talk = False
             if self._state.pending_clarifications:
                 clarification = self._state.next_clarification()
                 _dbg(f"next clarification: {clarification.role if clarification else None} ({clarification.term if clarification else None})")
@@ -164,30 +165,46 @@ class ChatEngine:
                 else:
                     reply = self._handle_clarification(message)
             else:
-                with _dbg_scope("parse_utterance(message)"):
-                    utterance = parse_utterance(message)
-                _dbg(
-                    "parsed utterance -> "
-                    f"kind={utterance.kind!r}, subject={utterance.subject!r}, obj={utterance.obj!r}, "
-                    f"attributes={utterance.attributes}, relations={utterance.relations}"
-                )
-
-                if utterance.kind == "correction":
-                    reply = self._handle_correction_request(message)
-                elif utterance.kind == "definition":
-                    reply = self._learn_definition(utterance)
-                elif utterance.kind == "statement":
-                    reply = self._learn_statement(utterance)
-                elif utterance.kind == "query":
-                    resolved = self._resolve_query_subject(utterance.subject)
-                    _dbg(f"resolved query subject: {resolved!r}")
-                    reply = self._reasoner.respond_to_query(
-                        resolved,
-                        relation=utterance.query_relation,
-                        verb=utterance.query_verb,
-                    )
+                interruption_reply = self._handle_internal_question_interruption(message)
+                if interruption_reply is not None:
+                    reply = interruption_reply
+                    used_small_talk = True
                 else:
-                    reply = self._reasoner.small_talk()
+                    with _dbg_scope("parse_utterance(message)"):
+                        utterance = parse_utterance(message)
+                    _dbg(
+                        "parsed utterance -> "
+                        f"kind={utterance.kind!r}, subject={utterance.subject!r}, obj={utterance.obj!r}, "
+                        f"attributes={utterance.attributes}, relations={utterance.relations}"
+                    )
+
+                    if utterance.kind == "correction":
+                        reply = self._handle_correction_request(message)
+                    elif utterance.kind == "definition":
+                        reply = self._learn_definition(utterance)
+                    elif utterance.kind == "statement":
+                        reply = self._learn_statement(utterance)
+                    elif utterance.kind == "query":
+                        resolved = self._resolve_query_subject(utterance.subject)
+                        _dbg(f"resolved query subject: {resolved!r}")
+                        reply = self._reasoner.respond_to_query(
+                            resolved,
+                            relation=utterance.query_relation,
+                            verb=utterance.query_verb,
+                        )
+                    else:
+                        if self._state.internal_question_pause_turns > 0:
+                            _dbg(
+                                "internal-question pause active -> use non-curiosity small talk "
+                                f"({self._state.internal_question_pause_turns} turn(s) left)"
+                            )
+                            reply = self._small_talk_without_curiosity()
+                        else:
+                            reply = self._reasoner.small_talk()
+                        used_small_talk = True
+
+            reply = self._append_internal_follow_up(reply, skip=used_small_talk)
+            self._advance_internal_question_controls()
 
             _dbg(f"reply: {_short(reply)!r}")
 
@@ -202,6 +219,99 @@ class ChatEngine:
             _dbg(f"facts snapshot: {len(facts)} items", level=2)
             _dbg(f"links snapshot: {len(links)} items", level=2)
             return ChatResponse(reply=reply, facts=facts, links=links)
+
+    def _append_internal_follow_up(self, reply: str, *, skip: bool = False) -> str:
+        if skip:
+            return reply
+        if self._state.pending_clarifications:
+            return reply
+        if self._state.internal_question_pause_turns > 0:
+            return reply
+        blocked_types: List[str] = []
+        if self._state.suppressed_problem_type and self._state.suppressed_problem_type_turns > 0:
+            blocked_types.append(self._state.suppressed_problem_type)
+        thought = self._reasoner.next_curiosity_thought(actuality_min=0.2, blocked_types=blocked_types)
+        if not thought or not thought.text:
+            return reply
+        self._state.last_curiosity_problem_type = thought.source_problem.type if thought.source_problem else None
+        _dbg(
+            "internal follow-up selected "
+            f"(priority={thought.priority:.2f}, type={thought.source_problem.type if thought.source_problem else 'n/a'})",
+            level=2,
+        )
+        follow_up = thought.text
+        follow_up = follow_up.strip()
+        if not follow_up:
+            return reply
+        if follow_up in reply:
+            return reply
+        if not reply.strip():
+            return follow_up
+        return f"{reply}\n\nBy the way, {follow_up}"
+
+    def _small_talk_without_curiosity(self) -> str:
+        if self._state.user_name:
+            return (
+                f"That sounds interesting, {self._state.user_name}. "
+                "I am still learning, so could you rephrase that as a simple fact or question?"
+            )
+        return (
+            "That sounds interesting. I am still learning, so please tell me a simple fact, "
+            "ask a question, or define a term."
+        )
+
+    def _normalize_user_text(self, text: str) -> str:
+        lowered = (text or "").lower().strip()
+        collapsed = " ".join(lowered.split())
+        return collapsed.replace("’", "'")
+
+    def _is_internal_question_interrupt(self, message: str) -> bool:
+        text = self._normalize_user_text(message)
+        if not text:
+            return False
+        direct_matches = {
+            "i don't know",
+            "i do not know",
+            "dont know",
+            "don't know",
+            "idk",
+            "next question",
+        }
+        if text in direct_matches:
+            return True
+        patterns = (
+            "i don't want to answer",
+            "i dont want to answer",
+            "i do not want to answer",
+            "don't want to answer",
+            "next question",
+            "ask me something else",
+            "something else",
+        )
+        return any(pattern in text for pattern in patterns)
+
+    def _handle_internal_question_interruption(self, message: str) -> Optional[str]:
+        if not self._is_internal_question_interrupt(message):
+            return None
+        self._state.internal_question_pause_turns = max(self._state.internal_question_pause_turns, 3)
+        if self._state.last_curiosity_problem_type:
+            self._state.suppressed_problem_type = self._state.last_curiosity_problem_type
+            self._state.suppressed_problem_type_turns = max(self._state.suppressed_problem_type_turns, 8)
+        _dbg(
+            "internal-question interruption recognized -> "
+            f"pause_turns={self._state.internal_question_pause_turns}, "
+            f"suppressed_problem_type={self._state.suppressed_problem_type!r}, "
+            f"suppressed_turns={self._state.suppressed_problem_type_turns}",
+        )
+        return "No problem. I will skip that question and ask something else."
+
+    def _advance_internal_question_controls(self) -> None:
+        if self._state.internal_question_pause_turns > 0:
+            self._state.internal_question_pause_turns -= 1
+        if self._state.suppressed_problem_type_turns > 0:
+            self._state.suppressed_problem_type_turns -= 1
+            if self._state.suppressed_problem_type_turns <= 0:
+                self._state.suppressed_problem_type = None
 
     def _learn_statement(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
         with _dbg_scope("ChatEngine._learn_statement()"):
