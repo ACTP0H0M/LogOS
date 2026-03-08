@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .knowledge import Branch, KnowledgeBase, Link, Symbol
 from .memory_store import EpisodicMemory, ProceduralMemory
+from .nlp import ParsedUtterance
 from .state import ConversationState, Clarification
 
 
@@ -16,6 +18,7 @@ class Problem:
     internal: bool = True
     link_ids: List[int] = field(default_factory=list)
     node_ids: List[int] = field(default_factory=list)
+    context: Dict[str, object] = field(default_factory=dict)
     solved: bool = False
 
 
@@ -85,6 +88,12 @@ class Reasoner:
     }
     _ONTOLOGY_META_SYMBOLS = {"#ENTITY", "#PROPERTY", "#VERB", "#RELATION", "#LOCATION", "#TIME", "#STATE"}
     _CURIOSITY_SKIP_SYMBOLS = {"#SELF", "#USER", "#NOW", "#UNKNOWN"}
+    _COMMAND_BREAK_MARKERS = (
+        " that can be ",
+        " that could be ",
+        " that should be ",
+        " to ",
+    )
 
     def __init__(
         self,
@@ -122,6 +131,87 @@ class Reasoner:
         if not symbol:
             return f"I do not know what {self._subject_label(normalized_subject)} is yet."
         return self._describe_symbol(symbol)
+
+    def detect_command_problem(self, utterance: ParsedUtterance) -> Optional[Problem]:
+        if utterance.kind != "command" or not utterance.command_verb:
+            return None
+        task_text = utterance.command_verb
+        if utterance.command_object:
+            task_text = f"{task_text} {utterance.command_object}".strip()
+        return Problem(
+            type="COMMAND",
+            severity=self._severity("COMMAND"),
+            internal=False,
+            context={
+                "raw": utterance.raw,
+                "request": utterance.command_request,
+                "verb": utterance.command_verb,
+                "object": utterance.command_object,
+                "task_text": task_text,
+            },
+        )
+
+    def learn_procedure(self, task_name: str, description: str) -> Thought:
+        thought = Thought(priority=self._severity("UNKNOWN_METHOD"))
+        cleaned_description = " ".join((description or "").split()).strip()
+        if not task_name or not cleaned_description:
+            thought.text = "Please describe the method in a few concrete steps."
+            return thought
+
+        created_links: List[int] = []
+        created_nodes: List[int] = []
+        task_symbol = self._knowledge.ensure_symbol(task_name, kind="action")
+        created_nodes.append(task_symbol.id)
+
+        method_name = f"procedure for {task_symbol.name}"
+        method_symbol = self._knowledge.ensure_symbol(method_name, kind="action")
+        created_nodes.append(method_symbol.id)
+
+        method_link, created = self._ensure_positive_link(
+            task_symbol.id,
+            method_symbol.id,
+            "method_link",
+            generality=1.0,
+            actuality=0.95,
+        )
+        if created:
+            created_links.append(method_link.id)
+
+        for step_text in self._extract_procedure_steps(cleaned_description):
+            step_symbol = self._knowledge.ensure_symbol(step_text, kind="action")
+            created_nodes.append(step_symbol.id)
+            step_task_link, step_created = self._ensure_positive_link(
+                self._knowledge.ensure_symbol("#SELF", kind="entity").id,
+                step_symbol.id,
+                "task_link",
+                generality=0.6,
+                actuality=0.75,
+            )
+            if step_created:
+                created_links.append(step_task_link.id)
+            purpose_link, purpose_created = self._ensure_positive_link(
+                task_symbol.id,
+                step_symbol.id,
+                "in_order_to",
+                generality=0.7,
+                actuality=0.85,
+            )
+            if purpose_created:
+                created_links.append(purpose_link.id)
+
+        existing_rule = self._procedural_rule_for_task(task_symbol.name)
+        if not existing_rule or not existing_rule.conclusion or existing_rule.conclusion[2] != cleaned_description:
+            self._procedural.add_rule(
+                name=f"method:{task_symbol.name}",
+                conditions=[],
+                conclusion=(task_symbol.name, "method", cleaned_description),
+                confidence=0.9,
+            )
+
+        thought.text = f"Okay. I will treat that as a procedure for {task_symbol.name}."
+        thought.solution_link_ids = created_links
+        thought.solution_node_ids = list(dict.fromkeys(created_nodes))
+        return thought
 
     def _describe_symbol(self, symbol: Symbol) -> str:
         outgoing = self._knowledge.links_from(symbol.id)
@@ -440,7 +530,7 @@ class Reasoner:
                                 "missing_nodes": missing,
                             },
                         )
-                    if not self._positive_links_by_name(self._knowledge.links_from(link.target), "method_link"):
+                    if not self._known_methods_for_task(link.target):
                         problem = Problem(
                             type="UNKNOWN_METHOD",
                             severity=self._severity("UNKNOWN_METHOD"),
@@ -470,6 +560,9 @@ class Reasoner:
     def solve_problem(self, problem: Problem) -> Thought:
         """Port of Java ProblemSolver internal behaviors (prompting + some auto-resolution)."""
         thought = Thought(priority=problem.severity, source_problem=problem)
+        if problem.type == "COMMAND":
+            self._solve_command(problem, thought)
+            return thought
         if not problem.internal:
             thought.text = "I do not have a method for solving this problem yet."
             return thought
@@ -706,6 +799,201 @@ class Reasoner:
             if req_name not in actor_has:
                 missing.append(req)
         return missing
+
+    def _solve_command(self, problem: Problem, thought: Thought) -> None:
+        created_links, task_nodes = self._register_command_tasks(problem)
+        thought.solution_link_ids = created_links
+        thought.solution_node_ids = list(task_nodes)
+
+        if not task_nodes:
+            task_text = str(problem.context.get("task_text") or "that")
+            thought.text = f"I understand that as a command, but I could not derive a task for {task_text}."
+            return
+
+        task_labels = [self._knowledge.node_label(node_id, wrap_branch=False) for node_id in task_nodes]
+        unknown_tasks = [node_id for node_id in task_nodes if not self._known_methods_for_task(node_id)]
+
+        if unknown_tasks:
+            unknown_label = self._knowledge.node_label(unknown_tasks[0], wrap_branch=False)
+            self._queue_procedure_clarification(unknown_label, str(problem.context.get("raw") or unknown_label))
+            if len(task_labels) > 1:
+                thought.text = (
+                    "I understand this command as the tasks "
+                    + ", ".join(task_labels)
+                    + f". I do not know a method for {unknown_label} yet."
+                )
+            else:
+                thought.text = f"I understand the command as {task_labels[0]}, but I do not know a method for it yet."
+            return
+
+        root_label = task_labels[0]
+        rule = self._procedural_rule_for_task(root_label)
+        if rule and rule.conclusion:
+            method_summary = " ".join(str(rule.conclusion[2]).split())
+            if method_summary:
+                thought.text = f"I know a procedure for {root_label}: {method_summary}"
+                return
+        thought.text = f"I know a method for {root_label}."
+
+    def _register_command_tasks(self, problem: Problem) -> Tuple[List[int], List[int]]:
+        verb = str(problem.context.get("verb") or "").strip()
+        obj = str(problem.context.get("object") or "").strip()
+        if not verb:
+            return [], []
+
+        actor = self._knowledge.ensure_symbol("#SELF", kind="entity")
+        created_links: List[int] = []
+        task_nodes: List[int] = []
+        root_task_id: Optional[int] = None
+        base_verb_symbol = self._knowledge.ensure_symbol(verb, kind="action")
+
+        for index, spec in enumerate(self._command_task_specs(verb, obj)):
+            task_symbol = self._knowledge.ensure_symbol(spec["text"], kind="action")
+            task_nodes.append(task_symbol.id)
+
+            task_link, task_created = self._ensure_positive_link(
+                actor.id,
+                task_symbol.id,
+                "task_link",
+                generality=1.0 if index == 0 else 0.7,
+                actuality=0.95 if index == 0 else 0.8,
+            )
+            if task_created:
+                created_links.append(task_link.id)
+
+            if task_symbol.id != base_verb_symbol.id:
+                parent_link, parent_created = self._ensure_positive_link(
+                    task_symbol.id,
+                    base_verb_symbol.id,
+                    "is_a",
+                    generality=0.8,
+                    actuality=0.9,
+                )
+                if parent_created:
+                    created_links.append(parent_link.id)
+
+            object_text = str(spec.get("object") or "").strip()
+            if object_text:
+                object_symbol = self._knowledge.ensure_symbol(object_text, kind="entity")
+                object_link, object_created = self._ensure_positive_link(
+                    task_symbol.id,
+                    object_symbol.id,
+                    "what",
+                    generality=0.7,
+                    actuality=0.85,
+                )
+                if object_created:
+                    created_links.append(object_link.id)
+
+            if index == 0:
+                root_task_id = task_symbol.id
+                continue
+
+            if root_task_id is not None:
+                purpose_link, purpose_created = self._ensure_positive_link(
+                    root_task_id,
+                    task_symbol.id,
+                    "in_order_to",
+                    generality=0.7,
+                    actuality=0.85,
+                )
+                if purpose_created:
+                    created_links.append(purpose_link.id)
+
+        return created_links, list(dict.fromkeys(task_nodes))
+
+    def _command_task_specs(self, verb: str, obj: str) -> List[Dict[str, str]]:
+        verb = " ".join((verb or "").split()).strip()
+        obj = " ".join((obj or "").split()).strip()
+        if not verb:
+            return []
+        if not obj:
+            return [{"text": verb, "object": ""}]
+
+        root_obj = obj
+        subtasks: List[str] = []
+        lowered = obj.lower()
+        earliest_idx: Optional[int] = None
+        earliest_marker: Optional[str] = None
+        for marker in self._COMMAND_BREAK_MARKERS:
+            idx = lowered.find(marker)
+            if idx <= 0:
+                continue
+            if earliest_idx is None or idx < earliest_idx:
+                earliest_idx = idx
+                earliest_marker = marker
+
+        if earliest_idx is not None and earliest_marker is not None:
+            root_obj = obj[:earliest_idx].strip(" ,.")
+            tail = obj[earliest_idx + len(earliest_marker) :].strip(" ,.")
+            if tail:
+                subtasks.append(tail)
+
+        specs = [{"text": f"{verb} {root_obj}".strip(), "object": root_obj}]
+        for subtask in subtasks:
+            specs.append({"text": subtask, "object": ""})
+        return specs
+
+    def _known_methods_for_task(self, task_node_id: int) -> List[Link]:
+        known = self._positive_links_by_name(self._knowledge.links_from(task_node_id), "method_link")
+        if known:
+            return known
+
+        inherited: List[Link] = []
+        for parent_link in self._positive_links_by_name(self._knowledge.links_from(task_node_id), "is_a"):
+            inherited.extend(self._positive_links_by_name(self._knowledge.links_from(parent_link.target), "method_link"))
+        return inherited
+
+    def _ensure_positive_link(
+        self,
+        source_id: int,
+        target_id: int,
+        relation: str,
+        *,
+        generality: float,
+        actuality: float,
+    ) -> Tuple[Link, bool]:
+        for existing in self._knowledge.links_from(source_id):
+            if existing.target != target_id or existing.relation != relation:
+                continue
+            if existing.generality > 0:
+                existing.actuality = max(existing.actuality, actuality)
+                return existing, False
+        return self._knowledge.add_link(
+            source_id,
+            target_id,
+            relation,
+            generality=generality,
+            actuality=actuality,
+        ), True
+
+    def _queue_procedure_clarification(self, task_name: str, context: str) -> None:
+        for clarification in self._state.pending_clarifications:
+            if clarification.role == "procedure" and clarification.term == task_name:
+                return
+        self._state.queue_clarification(Clarification(term=task_name, role="procedure", context=context))
+
+    def _procedural_rule_for_task(self, task_name: str):
+        normalized = task_name.strip().lower()
+        rule_name = f"method:{normalized}"
+        for rule in reversed(self._procedural.rules):
+            if rule.name.strip().lower() == rule_name:
+                return rule
+            if rule.conclusion and len(rule.conclusion) == 3:
+                source, relation, _ = rule.conclusion
+                if source.strip().lower() == normalized and relation == "method":
+                    return rule
+        return None
+
+    def _extract_procedure_steps(self, text: str) -> List[str]:
+        parts = re.split(r"(?:\r?\n|;|\.\s+|\band then\b|\bthen\b)", text)
+        steps: List[str] = []
+        for part in parts:
+            cleaned = re.sub(r"^\s*\d+[\).\s-]*", "", part).strip(" \t\r\n.,")
+            if len(cleaned.split()) < 2:
+                continue
+            steps.append(cleaned)
+        return steps[:6]
 
     def _find_node_level_problems(
         self,
@@ -1149,6 +1437,11 @@ class Reasoner:
         return mapping.get(link.relation, f" {link.relation} ")
 
     def pending_clarification_prompt(self, clarification: Clarification) -> str:
+        if clarification.role == "procedure":
+            return (
+                f"I do not know a method for '{clarification.term}' yet. "
+                "Please describe a procedure in a few concrete steps."
+            )
         if clarification.role == "kind":
             return (
                 f"Is '{clarification.term}' #ENTITY, #PROPERTY, #VERB, #RELATION, #LOCATION, #TIME, or #STATE?"

@@ -36,6 +36,32 @@ PREPOSITIONS = {
     "outside",
     "over",
 }
+REQUEST_PREFIX_PHRASES = (
+    ("would", "you", "be", "so", "kind"),
+    ("could", "you"),
+    ("would", "you"),
+    ("can", "you"),
+    ("please",),
+    ("kindly",),
+)
+COMMAND_LEAD_VERBS = {
+    "arrange",
+    "book",
+    "build",
+    "buy",
+    "create",
+    "design",
+    "find",
+    "get",
+    "make",
+    "organize",
+    "plan",
+    "prepare",
+    "show",
+    "write",
+}
+COMMAND_FILLER_TOKENS = {"please", "kindly", "just"}
+COMMAND_INDIRECT_OBJECTS = {"me", "us"}
 
 _NLP_DEBUG = os.getenv("LOGOS_NLP_DEBUG", "1").strip().lower() not in {"", "0", "false", "no", "off"}
 _NLP_DEBUG_INDENT = 0
@@ -75,6 +101,9 @@ class ParsedUtterance:
     active_verb: Optional[str] = None
     active_object: Optional[str] = None
     active_object_modifiers: List[str] = field(default_factory=list)
+    command_request: Optional[str] = None
+    command_verb: Optional[str] = None
+    command_object: Optional[str] = None
     raw: str = ""
 
 
@@ -176,6 +205,60 @@ def _join(tokens: List[str]) -> str:
         return joined
 
 
+def _detect_command(tokens_case: List[str], tokens_lower: List[str]) -> Optional[Tuple[Optional[str], str, Optional[str]]]:
+    with _dbg_scope("_detect_command()"):
+        _dbg(f"tokens_case: {tokens_case}")
+        _dbg(f"tokens_lower: {tokens_lower}")
+        if not tokens_lower:
+            _dbg("no tokens -> None")
+            return None
+
+        request_phrase: Optional[str] = None
+        verb_idx = 0
+        for phrase in sorted(REQUEST_PREFIX_PHRASES, key=len, reverse=True):
+            phrase_len = len(phrase)
+            if tokens_lower[:phrase_len] == list(phrase):
+                request_phrase = _join(tokens_case[:phrase_len])
+                verb_idx = phrase_len
+                _dbg(f"matched request phrase: {request_phrase!r}")
+                break
+
+        while verb_idx < len(tokens_lower) and tokens_lower[verb_idx] in COMMAND_FILLER_TOKENS:
+            verb_idx += 1
+
+        if request_phrase and verb_idx < len(tokens_lower) and tokens_lower[verb_idx] == "you":
+            verb_idx += 1
+
+        if verb_idx >= len(tokens_lower):
+            _dbg("no verb candidate left -> None")
+            return None
+
+        verb_lower = tokens_lower[verb_idx]
+        if verb_idx + 1 < len(tokens_lower) and tokens_lower[verb_idx + 1] in COPULAS:
+            _dbg("verb candidate followed by copula -> not a command")
+            return None
+
+        if request_phrase:
+            if verb_lower in ARTICLES or verb_lower in PREPOSITIONS or verb_lower in COPULAS:
+                _dbg("request phrase found but no usable verb after it")
+                return None
+        elif verb_lower not in COMMAND_LEAD_VERBS:
+            _dbg(f"leading token {verb_lower!r} not in imperative seed list")
+            return None
+
+        obj_tokens_case = tokens_case[verb_idx + 1 :]
+        obj_tokens_lower = tokens_lower[verb_idx + 1 :]
+        if len(obj_tokens_lower) > 1 and obj_tokens_lower[0] in COMMAND_INDIRECT_OBJECTS:
+            obj_tokens_case = obj_tokens_case[1:]
+            obj_tokens_lower = obj_tokens_lower[1:]
+
+        obj = _join(obj_tokens_case) if obj_tokens_case else None
+        _dbg(f"command request: {request_phrase!r}")
+        _dbg(f"command verb: {tokens_case[verb_idx]!r}")
+        _dbg(f"command object: {obj!r}")
+        return request_phrase, tokens_case[verb_idx], obj
+
+
 def parse_utterance(text: str) -> ParsedUtterance:
     with _dbg_scope("parse_utterance()"):
         _dbg(f"input: {text!r}")
@@ -195,6 +278,18 @@ def parse_utterance(text: str) -> ParsedUtterance:
         if matched_corrections:
             _dbg(f"correction phrase detected: {matched_corrections}")
             return ParsedUtterance(kind="correction", raw=raw)
+
+        command = _detect_command(tokens_case, tokens)
+        if command:
+            request_phrase, command_verb, command_object = command
+            _dbg("command detected")
+            return ParsedUtterance(
+                kind="command",
+                command_request=request_phrase,
+                command_verb=command_verb,
+                command_object=command_object,
+                raw=raw,
+            )
 
         if lowered.endswith("?") or tokens[0] in {"what", "who", "where", "tell"}:
             _dbg("query detected")

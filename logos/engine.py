@@ -157,6 +157,7 @@ class ChatEngine:
 
             reply = ""
             used_small_talk = False
+            skip_internal_follow_up = False
             if self._state.pending_clarifications:
                 clarification = self._state.next_clarification()
                 _dbg(f"next clarification: {clarification.role if clarification else None} ({clarification.term if clarification else None})")
@@ -164,6 +165,8 @@ class ChatEngine:
                     reply = self._handle_correction_response(message)
                 else:
                     reply = self._handle_clarification(message)
+                    if clarification and clarification.role == "procedure":
+                        skip_internal_follow_up = True
             else:
                 interruption_reply = self._handle_internal_question_interruption(message)
                 if interruption_reply is not None:
@@ -180,6 +183,9 @@ class ChatEngine:
 
                     if utterance.kind == "correction":
                         reply = self._handle_correction_request(message)
+                    elif utterance.kind == "command":
+                        reply = self._handle_command(utterance)
+                        skip_internal_follow_up = True
                     elif utterance.kind == "definition":
                         reply = self._learn_definition(utterance)
                     elif utterance.kind == "statement":
@@ -203,7 +209,7 @@ class ChatEngine:
                             reply = self._reasoner.small_talk()
                         used_small_talk = True
 
-            reply = self._append_internal_follow_up(reply, skip=used_small_talk)
+            reply = self._append_internal_follow_up(reply, skip=used_small_talk or skip_internal_follow_up)
             self._advance_internal_question_controls()
 
             _dbg(f"reply: {_short(reply)!r}")
@@ -312,6 +318,45 @@ class ChatEngine:
             self._state.suppressed_problem_type_turns -= 1
             if self._state.suppressed_problem_type_turns <= 0:
                 self._state.suppressed_problem_type = None
+
+    def _handle_command(self, utterance: ParsedUtterance) -> str:
+        with _dbg_scope("ChatEngine._handle_command()"):
+            _dbg(
+                "command utterance -> "
+                f"request={utterance.command_request!r} verb={utterance.command_verb!r} object={utterance.command_object!r}"
+            )
+            problem = self._reasoner.detect_command_problem(utterance)
+            if not problem:
+                return "I understood that as a possible command, but I could not derive a task from it."
+
+            thought = self._reasoner.solve_problem(problem)
+            if thought.solution_link_ids or thought.solution_node_ids:
+                event = self._episodic.add_event(
+                    utterance.raw,
+                    thought.solution_link_ids,
+                    thought.solution_node_ids,
+                )
+                _dbg(
+                    f"episodic.add_event(command) -> event_id={event.id} "
+                    f"links={thought.solution_link_ids} nodes={thought.solution_node_ids}"
+                )
+                self._state.last_added_links = list(thought.solution_link_ids)
+                self._state.last_utterance = utterance.raw
+
+            task_text = problem.context.get("task_text")
+            if isinstance(task_text, str) and task_text:
+                self._state.remember_topic(task_text)
+
+            if self._state.pending_clarifications:
+                clarification = self._state.next_clarification()
+                prompt = self._reasoner.pending_clarification_prompt(clarification)
+                if clarification and clarification.role == "procedure" and thought.text:
+                    return f"{thought.text} Please describe a procedure in a few concrete steps."
+                if thought.text:
+                    return f"{thought.text} {prompt}"
+                return prompt
+
+            return thought.text or "I registered that command."
 
     def _learn_statement(self, utterance: ParsedUtterance, parse_payload: Optional[Dict[str, object]] = None) -> str:
         with _dbg_scope("ChatEngine._learn_statement()"):
@@ -828,6 +873,22 @@ class ChatEngine:
                 label = "transitive" if transitive else "intransitive"
                 reply = f"Okay, I'll treat '{clarification.term}' as {label}."
                 return self._resume_after_clarification(clarification, reply)
+
+            if clarification.role == "procedure":
+                thought = self._reasoner.learn_procedure(clarification.term, message)
+                if thought.solution_link_ids or thought.solution_node_ids:
+                    event = self._episodic.add_event(
+                        clarification.context or clarification.term,
+                        thought.solution_link_ids,
+                        thought.solution_node_ids,
+                    )
+                    _dbg(
+                        f"episodic.add_event(procedure) -> event_id={event.id} "
+                        f"links={thought.solution_link_ids} nodes={thought.solution_node_ids}"
+                    )
+                    self._state.last_added_links = list(thought.solution_link_ids)
+                    self._state.last_utterance = clarification.context or clarification.term
+                return thought.text or f"Okay. I will remember that procedure for {clarification.term}."
 
             with _dbg_scope("parse_utterance(message)"):
                 utterance = parse_utterance(message)
